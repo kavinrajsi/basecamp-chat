@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { format, isEqual, startOfDay, differenceInDays, addDays, subDays } from "date-fns";
-import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, Bold, Italic, Strikethrough, Link2, Paintbrush, Heading, Quote, Code, List as ListIcon, ListOrdered, Type, Smile, Paperclip, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, Bold, Italic, Strikethrough, Link2, Paintbrush, Heading, Quote, Code, List as ListIcon, ListOrdered, Type, Smile, Paperclip, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 import MentionDropdown from "./MentionDropdown";
@@ -25,6 +25,7 @@ export default function ProjectDetail({ project, onMessageSent }) {
   const [desktopHasContent, setDesktopHasContent] = useState(false);
   const [expandedLists, setExpandedLists] = useState({});
   const [mobileTab, setMobileTab] = useState("chat");
+  const [todoView, setTodoView] = useState("list");
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const editorRef = useRef(null);
@@ -201,33 +202,17 @@ export default function ProjectDetail({ project, onMessageSent }) {
     setDesktopHasContent(!!text);
   }
 
-  function toBasecampHtml(html) {
-    return html
-      .replace(/<b\b/gi, "<strong")
-      .replace(/<\/b>/gi, "</strong>")
-      .replace(/<i\b/gi, "<em")
-      .replace(/<\/i>/gi, "</em>")
-      .replace(/<s\b/gi, "<del")
-      .replace(/<\/s>/gi, "</del>")
-      .replace(/<strike\b/gi, "<del")
-      .replace(/<\/strike>/gi, "</del>")
-      .replace(/<h2\b/gi, "<h1")
-      .replace(/<\/h2>/gi, "</h1>")
-      .replace(/<code\b[^>]*>/gi, "<pre>")
-      .replace(/<\/code>/gi, "</pre>");
-  }
-
   async function handleSendDesktop(e) {
     e.preventDefault();
-    const rawHtml = editorRef.current?.innerHTML?.trim();
-    if (!rawHtml || !editorRef.current?.textContent?.trim() || !project.chatId || sending) return;
+    const text = editorRef.current?.textContent?.trim();
+    if (!text || !project.chatId || sending) return;
 
-    const html = toBasecampHtml(rawHtml);
+    const content = transformContent(text);
     setSending(true);
     try {
       await axios.post(`/api/projects/${project.id}`, {
         chatId: project.chatId,
-        content: html,
+        content,
       });
       editorRef.current.innerHTML = "";
       setDesktopHasContent(false);
@@ -581,6 +566,177 @@ export default function ProjectDetail({ project, onMessageSent }) {
     </div>
   );
 
+  const ganttContent = hasTodos && (() => {
+    const allTodos = project.todoLists.flatMap((list) =>
+      (list.todos || []).map((t) => ({ ...t, listTitle: list.title || list.name }))
+    );
+    const datedTodos = allTodos.filter((t) => t.due_on);
+    if (datedTodos.length === 0) {
+      return (
+        <p className="text-center text-sm text-gray-400 py-8">
+          No todos with dates to display on the timeline.
+        </p>
+      );
+    }
+
+    const allDates = datedTodos.flatMap((t) => {
+      const dates = [new Date(t.due_on)];
+      if (t.starts_on) dates.push(new Date(t.starts_on));
+      return dates;
+    });
+    const minDate = subDays(new Date(Math.min(...allDates)), 3);
+    const maxDate = addDays(new Date(Math.max(...allDates)), 3);
+    const totalDays = differenceInDays(maxDate, minDate) + 1;
+    const today = startOfDay(new Date());
+    const todayOffset = differenceInDays(today, minDate);
+    const dayWidth = 32;
+
+    const columns = [];
+    for (let i = 0; i < totalDays; i++) {
+      const d = addDays(minDate, i);
+      const isMonthStart = d.getDate() === 1;
+      const isToday = differenceInDays(d, today) === 0;
+      columns.push({ date: d, isMonthStart, isToday, index: i });
+    }
+
+    const groupedByList = project.todoLists
+      .map((list) => ({
+        title: list.title || list.name,
+        todos: (list.todos || []).map((t) => ({ ...t })),
+      }))
+      .filter((g) => g.todos.length > 0);
+
+    return (
+      <div className="rounded-lg bg-gray-900/60 border border-gray-700/50 overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="inline-flex min-w-full">
+            {/* Left column: todo names */}
+            <div className="w-[180px] shrink-0 sticky left-0 z-10 bg-gray-900 border-r border-gray-700/50">
+              {/* Header spacer */}
+              <div className="h-[52px] border-b border-gray-700/50 px-3 flex items-end pb-1">
+                <span className="text-xs font-semibold text-gray-400">Task</span>
+              </div>
+              {groupedByList.map((group) => (
+                <div key={group.title}>
+                  <div className="h-8 flex items-center px-3 bg-gray-800/50 border-b border-gray-700/30">
+                    <span className="text-xs font-semibold text-gray-300 truncate">{group.title}</span>
+                  </div>
+                  {group.todos.map((todo) => (
+                    <div key={todo.id} className="h-8 flex items-center px-3 border-b border-gray-700/20">
+                      <span className={`text-xs truncate ${todo.completed ? "text-gray-500 line-through" : "text-gray-300"}`}>
+                        {todo.content?.replace(/<[^>]+>/g, "") || todo.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Right section: timeline */}
+            <div className="flex-1">
+              {/* Date headers */}
+              <div className="flex border-b border-gray-700/50 h-[52px]">
+                {columns.map((col) => (
+                  <div
+                    key={col.index}
+                    className={`flex flex-col items-center justify-end pb-1 shrink-0 ${col.isToday ? "bg-blue-900/20" : ""}`}
+                    style={{ width: dayWidth }}
+                  >
+                    {col.isMonthStart && (
+                      <span className="text-[10px] font-semibold text-gray-400">
+                        {format(col.date, "MMM")}
+                      </span>
+                    )}
+                    <span className={`text-[10px] ${col.isToday ? "text-blue-400 font-bold" : "text-gray-500"}`}>
+                      {format(col.date, "d")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Rows */}
+              <div className="relative">
+                {/* Today marker */}
+                {todayOffset >= 0 && todayOffset < totalDays && (
+                  <div
+                    className="absolute top-0 bottom-0 w-px bg-blue-500/60 z-[5]"
+                    style={{ left: todayOffset * dayWidth + dayWidth / 2 }}
+                  />
+                )}
+
+                {groupedByList.map((group) => (
+                  <div key={group.title}>
+                    {/* List header row */}
+                    <div className="h-8 border-b border-gray-700/30 bg-gray-800/30" />
+                    {/* Todo rows */}
+                    {group.todos.map((todo) => {
+                      const hasDates = todo.due_on;
+                      let barStart, barEnd, barColor;
+
+                      if (hasDates) {
+                        const startDate = todo.starts_on ? new Date(todo.starts_on) : new Date(todo.due_on);
+                        const endDate = new Date(todo.due_on);
+                        barStart = differenceInDays(startDate, minDate);
+                        barEnd = differenceInDays(endDate, minDate);
+                        if (barStart > barEnd) barStart = barEnd;
+
+                        if (todo.completed) {
+                          barColor = "bg-green-500/70";
+                        } else if (isOverdue(todo.due_on)) {
+                          barColor = "bg-red-500/70";
+                        } else {
+                          barColor = "bg-blue-500/70";
+                        }
+                      }
+
+                      return (
+                        <div key={todo.id} className="h-8 border-b border-gray-700/20 relative">
+                          {hasDates ? (
+                            <div
+                              className={`absolute top-1.5 h-5 rounded ${barColor}`}
+                              style={{
+                                left: barStart * dayWidth + 2,
+                                width: Math.max((barEnd - barStart + 1) * dayWidth - 4, 6),
+                              }}
+                              title={`${todo.content?.replace(/<[^>]+>/g, "") || todo.title}${todo.starts_on ? ` (${format(new Date(todo.starts_on), "MMM d")} – ${format(new Date(todo.due_on), "MMM d")})` : ` (due ${format(new Date(todo.due_on), "MMM d")})`}`}
+                            />
+                          ) : (
+                            <span className="absolute top-1.5 left-2 text-[10px] text-gray-500 italic">
+                              No date
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  })();
+
+  const todoViewToggle = (
+    <div className="inline-flex rounded-md border border-gray-600 overflow-hidden">
+      <button
+        onClick={() => setTodoView("list")}
+        className={`p-1.5 transition-colors ${todoView === "list" ? "bg-gray-600 text-gray-100" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"}`}
+        title="List view"
+      >
+        <ListTodo className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => setTodoView("gantt")}
+        className={`p-1.5 transition-colors ${todoView === "gantt" ? "bg-gray-600 text-gray-100" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"}`}
+        title="Timeline view"
+      >
+        <BarChart3 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+
   return (
     <>
       {/* ===== MOBILE: full-screen layout with tabs ===== */}
@@ -640,7 +796,8 @@ export default function ProjectDetail({ project, onMessageSent }) {
             </div>
           ) : (
             <div className="p-4">
-              {todoContent}
+              <div className="flex justify-end mb-3">{todoViewToggle}</div>
+              {todoView === "list" ? todoContent : ganttContent}
             </div>
           )}
         </div>
@@ -694,11 +851,14 @@ export default function ProjectDetail({ project, onMessageSent }) {
           {/* Todos */}
           {hasTodos && (
             <div className="mb-6">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-200">
-                <ListTodo className="h-4 w-4" />
-                Todos
-              </h2>
-              {todoContent}
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-200">
+                  <ListTodo className="h-4 w-4" />
+                  Todos
+                </h2>
+                {todoViewToggle}
+              </div>
+              {todoView === "list" ? todoContent : ganttContent}
             </div>
           )}
 
