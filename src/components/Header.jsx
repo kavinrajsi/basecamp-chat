@@ -1,9 +1,21 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Mountain, LogOut } from "lucide-react";
 
-export default function Header({ user }) {
+export default function Header() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.identity) setUser(data.identity);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
