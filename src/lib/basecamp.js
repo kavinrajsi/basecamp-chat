@@ -80,8 +80,33 @@ export async function getCampfireLines(accessToken, accountId, projectId, chatId
   return response.data;
 }
 
-export async function getPeople(accessToken, accountId, projectId) {
-  const url = `https://3.basecampapi.com/${accountId}/projects/${projectId}/people.json`;
+export async function createCampfireLine(accessToken, accountId, projectId, chatId, content) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/chats/${chatId}/lines.json`;
+  const response = await axios.post(
+    url,
+    { content },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  return response.data;
+}
+
+export async function trashRecording(accessToken, accountId, projectId, recordingId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/recordings/${recordingId}/status/trashed.json`;
+  await axios.put(url, {}, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+export async function getTodoLists(accessToken, accountId, projectId, todosetId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todosets/${todosetId}/todolists.json`;
   const response = await axios.get(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -89,4 +114,32 @@ export async function getPeople(accessToken, accountId, projectId) {
     },
   });
   return response.data;
+}
+
+export async function getTodos(accessToken, accountId, projectId, todolistId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todolists/${todolistId}/todos.json`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
+export async function getPeople(accessToken, accountId, projectId) {
+  let url = `https://3.basecampapi.com/${accountId}/projects/${projectId}/people.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
 }

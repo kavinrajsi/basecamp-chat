@@ -14,41 +14,48 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchProject() {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.get(`/api/projects/${id}`);
-        if (!cancelled) setProject(response.data);
-      } catch (err) {
-        if (!cancelled) {
-          if (err.response?.status === 401) {
-            window.location.href = "/";
-          } else {
-            setError(err.response?.data?.error || "Failed to load project");
-          }
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  async function fetchProject() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`/api/projects/${id}`);
+      setProject(response.data);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        window.location.href = "/";
+      } else {
+        setError(err.response?.data?.error || "Failed to load project");
       }
+    } finally {
+      setLoading(false);
     }
+  }
 
+  async function refreshChat() {
+    try {
+      const response = await axios.get(`/api/projects/${id}`);
+      setProject(response.data);
+    } catch {
+      // silent refresh failure
+    }
+  }
+
+  useEffect(() => {
     fetchProject();
-    return () => {
-      cancelled = true;
-    };
   }, [id]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-900">
+      {/* Hide header on mobile — ProjectDetail has its own mobile header */}
+      <div className="hidden sm:block">
+        <Header />
+      </div>
+      <main className="sm:mx-auto sm:max-w-4xl sm:px-6 sm:py-8 lg:px-8">
         {loading && <LoadingSpinner />}
         {error && <ErrorMessage message={error} />}
-        {!loading && !error && project && <ProjectDetail project={project} />}
+        {!loading && !error && project && (
+          <ProjectDetail project={project} onMessageSent={refreshChat} />
+        )}
       </main>
     </div>
   );

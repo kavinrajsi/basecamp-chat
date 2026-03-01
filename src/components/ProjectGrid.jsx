@@ -5,7 +5,7 @@ import ProjectCard from "./ProjectCard";
 export default function ProjectGrid({ projects }) {
   if (projects.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-gray-500">
+      <p className="py-12 text-center text-sm text-gray-400">
         No projects found.
       </p>
     );

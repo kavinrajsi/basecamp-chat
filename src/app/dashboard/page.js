@@ -16,10 +16,10 @@ export default function DashboardPage() {
   const filteredProjects = getFilteredProjects();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-6 text-2xl font-bold text-gray-900">Projects</h1>
+        <h1 className="mb-6 text-2xl font-bold text-gray-100">Projects</h1>
         <FilterBar />
 
         {loading && <LoadingSpinner />}

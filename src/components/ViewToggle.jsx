@@ -8,13 +8,13 @@ export default function ViewToggle() {
   const setViewMode = useProjectStore((s) => s.setViewMode);
 
   return (
-    <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+    <div className="flex rounded-lg border border-gray-600 overflow-hidden">
       <button
         onClick={() => setViewMode("grid")}
         className={`flex items-center gap-1 px-3 py-2 text-sm transition-colors ${
           viewMode === "grid"
             ? "bg-blue-600 text-white"
-            : "bg-white text-gray-600 hover:bg-gray-50"
+            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
         }`}
       >
         <LayoutGrid className="h-4 w-4" />
@@ -24,7 +24,7 @@ export default function ViewToggle() {
         className={`flex items-center gap-1 px-3 py-2 text-sm transition-colors ${
           viewMode === "list"
             ? "bg-blue-600 text-white"
-            : "bg-white text-gray-600 hover:bg-gray-50"
+            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
         }`}
       >
         <List className="h-4 w-4" />
