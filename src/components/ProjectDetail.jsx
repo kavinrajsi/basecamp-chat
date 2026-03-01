@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { format, isEqual, startOfDay, differenceInDays, addDays, subDays } from "date-fns";
-import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, Bold, Italic, Strikethrough, Link2, Paintbrush, Heading, Quote, Code, List as ListIcon, ListOrdered, Type, Smile, Paperclip, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
+import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3, WifiOff } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 import MentionDropdown from "./MentionDropdown";
@@ -22,14 +22,13 @@ export default function ProjectDetail({ project, onMessageSent }) {
   const [mentionFilter, setMentionFilter] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionStart, setMentionStart] = useState(null);
-  const [desktopHasContent, setDesktopHasContent] = useState(false);
   const [expandedLists, setExpandedLists] = useState({});
   const [mobileTab, setMobileTab] = useState("chat");
   const [todoView, setTodoView] = useState("list");
+  const [isOffline, setIsOffline] = useState(false);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
-  const editorRef = useRef(null);
-  const savedRangeRef = useRef(null);
+  const desktopInputRef = useRef(null);
 
   const people = project.people || [];
   const filteredPeople = people.filter((p) =>
@@ -39,6 +38,21 @@ export default function ProjectDetail({ project, onMessageSent }) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [project.campfireLines]);
+
+  useEffect(() => {
+    function sync() {
+      setIsOffline(!navigator.onLine || localStorage.getItem("offlineMode") === "true");
+    }
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    window.addEventListener("offlinemode", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+      window.removeEventListener("offlinemode", sync);
+    };
+  }, []);
 
   const detectMention = useCallback((value, cursorPos) => {
     const before = value.slice(0, cursorPos);
@@ -132,98 +146,6 @@ export default function ProjectDetail({ project, onMessageSent }) {
     }
   }
 
-  function saveSelection() {
-    const sel = window.getSelection();
-    if (sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
-      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
-    }
-  }
-
-  function restoreSelection() {
-    const range = savedRangeRef.current;
-    if (range) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  }
-
-  function handleToolbar(label) {
-    editorRef.current?.focus();
-    restoreSelection();
-
-    switch (label) {
-      case "Bold":
-        document.execCommand("bold", false, null);
-        break;
-      case "Italic":
-        document.execCommand("italic", false, null);
-        break;
-      case "Strikethrough":
-        document.execCommand("strikethrough", false, null);
-        break;
-      case "Link": {
-        const url = prompt("Enter URL:");
-        if (url) document.execCommand("createLink", false, url);
-        break;
-      }
-      case "Heading":
-        document.execCommand("formatBlock", false, "h2");
-        break;
-      case "Quote":
-        document.execCommand("formatBlock", false, "blockquote");
-        break;
-      case "Code": {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0 && !sel.isCollapsed) {
-          const range = sel.getRangeAt(0);
-          const code = document.createElement("code");
-          code.className = "bg-gray-700 px-1 rounded text-sm";
-          range.surroundContents(code);
-        }
-        break;
-      }
-      case "Bullet list":
-        document.execCommand("insertUnorderedList", false, null);
-        break;
-      case "Numbered list":
-        document.execCommand("insertOrderedList", false, null);
-        break;
-      default:
-        break;
-    }
-
-    saveSelection();
-    updateDesktopHasContent();
-  }
-
-  function updateDesktopHasContent() {
-    const text = editorRef.current?.textContent?.trim();
-    setDesktopHasContent(!!text);
-  }
-
-  async function handleSendDesktop(e) {
-    e.preventDefault();
-    const text = editorRef.current?.textContent?.trim();
-    if (!text || !project.chatId || sending) return;
-
-    const content = transformContent(text);
-    setSending(true);
-    try {
-      await axios.post(`/api/projects/${project.id}`, {
-        chatId: project.chatId,
-        content,
-      });
-      editorRef.current.innerHTML = "";
-      setDesktopHasContent(false);
-      if (onMessageSent) onMessageSent();
-    } catch (err) {
-      console.error("Failed to send:", err);
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function handleMessageAction(action, line) {
     switch (action) {
       case "copy-link": {
@@ -259,21 +181,14 @@ export default function ProjectDetail({ project, onMessageSent }) {
     return new Date(dateStr) < new Date() ;
   }
 
-  const toolbarButtons = [
-    { icon: Bold, label: "Bold" },
-    { icon: Italic, label: "Italic" },
-    { icon: Strikethrough, label: "Strikethrough" },
-    { icon: Link2, label: "Link" },
-    { icon: Paintbrush, label: "Color" },
-    { icon: Heading, label: "Heading" },
-    { icon: Quote, label: "Quote" },
-    { icon: Code, label: "Code" },
-    { icon: ListIcon, label: "Bullet list" },
-    { icon: ListOrdered, label: "Numbered list" },
-  ];
-
   const chatInput = project.chatId && (
     <div className="border-t border-gray-700 bg-gray-900 px-3 py-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:mt-4">
+      {isOffline && (
+        <div className="flex items-center gap-2 rounded-md bg-gray-700/60 px-3 py-2 mb-2 text-sm text-gray-300">
+          <WifiOff className="h-4 w-4 shrink-0 text-gray-400" />
+          You&apos;re offline — sending is disabled
+        </div>
+      )}
       {/* Mobile: simple input */}
       <form onSubmit={handleSend} className="flex items-center gap-2 sm:hidden">
         <div className="relative flex-1">
@@ -292,74 +207,51 @@ export default function ProjectDetail({ project, onMessageSent }) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Send message"
-            disabled={sending}
+            disabled={sending || isOffline}
             className="w-full rounded-full border border-gray-600 bg-gray-800 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
           />
         </div>
         <button
           type="submit"
-          disabled={!message.trim() || sending}
+          disabled={!message.trim() || sending || isOffline}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send className="h-5 w-5" />
         </button>
       </form>
 
-      {/* Desktop: rich composer */}
-      <form onSubmit={handleSendDesktop} className="hidden sm:block">
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 mb-2">
-          {toolbarButtons.map(({ icon: Icon, label }) => (
-            <button
-              key={label}
-              type="button"
-              title={label}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleToolbar(label)}
-              className="rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
-        </div>
-
-        {/* Editable area */}
+      {/* Desktop: composer */}
+      <form onSubmit={handleSend} className="hidden sm:block">
         <div className="relative rounded-lg border border-gray-600 bg-gray-800 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={updateDesktopHasContent}
-            onMouseUp={saveSelection}
-            onKeyUp={saveSelection}
+          {showMentions && (
+            <MentionDropdown
+              people={people}
+              filter={mentionFilter}
+              onSelect={handleSelect}
+              selectedIndex={mentionIndex}
+            />
+          )}
+          <textarea
+            ref={desktopInputRef}
+            value={message}
+            onChange={handleChange}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              handleKeyDown(e);
+              if (e.key === "Enter" && !e.shiftKey && !showMentions) {
                 e.preventDefault();
-                handleSendDesktop(e);
+                handleSend(e);
               }
             }}
-            data-placeholder="Write your message..."
-            className="min-h-[100px] max-h-[300px] overflow-y-auto w-full rounded-lg bg-transparent px-4 py-3 text-sm text-gray-100 focus:outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-500 empty:before:pointer-events-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-gray-500 [&_blockquote]:pl-3 [&_blockquote]:text-gray-400 [&_code]:bg-gray-700 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm [&_a]:text-blue-400 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+            placeholder="Write your message..."
+            disabled={sending || isOffline}
+            rows={3}
+            className="w-full resize-none rounded-lg bg-transparent px-4 py-3 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none disabled:opacity-50"
           />
-          {/* Bottom-right icons */}
-          <div className="flex items-center justify-end gap-1 px-3 pb-2">
-            <button type="button" title="Text color" className="rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors">
-              <Type className="h-4 w-4" />
-            </button>
-            <button type="button" title="Emoji" className="rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors">
-              <Smile className="h-4 w-4" />
-            </button>
-            <button type="button" title="Attach file" className="rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors">
-              <Paperclip className="h-4 w-4" />
-            </button>
-          </div>
         </div>
-
-        {/* Post button */}
         <div className="mt-2">
           <button
             type="submit"
-            disabled={!desktopHasContent || sending}
+            disabled={!message.trim() || sending || isOffline}
             className="rounded-full bg-green-200 px-5 py-1.5 text-sm font-semibold text-green-900 hover:bg-green-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {sending ? "Posting..." : "Post"}
