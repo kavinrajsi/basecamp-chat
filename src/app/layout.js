@@ -5,16 +5,17 @@ export const metadata = {
   title: "Basecamp Viewer",
   description: "View and manage your Basecamp projects",
   manifest: "/manifest.json",
-  themeColor: "#111827",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Basecamp Viewer",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#111827",
 };
 
 export default function RootLayout({ children }) {
