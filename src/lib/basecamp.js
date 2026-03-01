@@ -58,6 +58,28 @@ export async function getProject(accessToken, accountId, projectId) {
   return response.data;
 }
 
+export async function getCampfire(accessToken, accountId, projectId, chatId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/chats/${chatId}.json`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
+export async function getCampfireLines(accessToken, accountId, projectId, chatId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/chats/${chatId}/lines.json`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
 export async function getPeople(accessToken, accountId, projectId) {
   const url = `https://3.basecampapi.com/${accountId}/projects/${projectId}/people.json`;
   const response = await axios.get(url, {
