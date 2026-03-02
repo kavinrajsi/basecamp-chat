@@ -38,7 +38,7 @@ export async function GET(request) {
         key: String(g.bucket?.id),
         label: g.bucket?.name || "Unknown Project",
         projectId: g.bucket?.id,
-        todos: (g.assignables || []).map(normalizeAssignable),
+        todos: (g.assignments || []).map(normalizeAssignable),
       }));
       return NextResponse.json({ groupBy, groups });
     }
@@ -47,7 +47,7 @@ export async function GET(request) {
     const groups = (raw || []).map((g) => ({
       key: g.date || "no-date",
       date: g.date || null,
-      todos: (g.assignables || []).map(normalizeAssignable),
+      todos: (g.assignments || []).map(normalizeAssignable),
     }));
     return NextResponse.json({ groupBy, groups });
   } catch (error) {
