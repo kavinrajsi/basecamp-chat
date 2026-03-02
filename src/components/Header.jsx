@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { LogOut, Wifi, WifiOff, Users } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState(null);
   const [offlineMode, setOfflineMode] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setOfflineMode(localStorage.getItem("offlineMode") === "true");
@@ -37,6 +39,30 @@ export default function Header() {
             Basecamp Viewer
           </span>
         </Link>
+
+        <nav className="flex items-center gap-1">
+          <Link
+            href="/dashboard"
+            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+              pathname === "/dashboard"
+                ? "bg-gray-700 text-gray-100"
+                : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+            }`}
+          >
+            Projects
+          </Link>
+          <Link
+            href="/users"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              pathname === "/users"
+                ? "bg-gray-700 text-gray-100"
+                : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Users
+          </Link>
+        </nav>
 
         <div className="flex items-center gap-4">
           <button
