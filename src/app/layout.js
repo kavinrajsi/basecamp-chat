@@ -1,5 +1,6 @@
 import "./globals.css";
 import SWRegister from "@/components/SWRegister";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export const metadata = {
   title: "Basecamp Viewer",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
       <body className="antialiased">
         {children}
         <SWRegister />
+        <InstallPrompt />
       </body>
     </html>
   );
