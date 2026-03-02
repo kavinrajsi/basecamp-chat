@@ -53,6 +53,28 @@ export async function getProjects(accessToken, accountId) {
   return all;
 }
 
+export async function getQuestion(accessToken, accountId, bucketId, questionId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${bucketId}/questions/${questionId}.json`;
+  const response = await axios.get(url, {
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  });
+  return response.data;
+}
+
+export async function getQuestionAnswers(accessToken, accountId, bucketId, questionId) {
+  let url = `https://3.basecampapi.com/${accountId}/buckets/${bucketId}/questions/${questionId}/answers.json`;
+  const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
+}
+
 export async function getProject(accessToken, accountId, projectId) {
   const url = `https://3.basecampapi.com/${accountId}/projects/${projectId}.json`;
   const response = await axios.get(url, {

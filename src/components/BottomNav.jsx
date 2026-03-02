@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Users, ListTodo, Sparkles } from "lucide-react";
+import { FolderOpen, Users, ListTodo, Sparkles, CalendarOff } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Projects", icon: FolderOpen },
   { href: "/users", label: "Users", icon: Users },
   { href: "/todo-list", label: "Todos", icon: ListTodo },
+  { href: "/leave", label: "Leave", icon: CalendarOff },
   { href: "/ai", label: "AI", icon: Sparkles },
 ];
 
@@ -24,7 +25,7 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 px-5 py-1.5 rounded-xl transition-colors ${
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-colors ${
                 isActive
                   ? isAI
                     ? "text-purple-400"
