@@ -58,15 +58,11 @@ export default function Header() {
           </button>
           {user && (
             <>
-              <span className="text-sm text-gray-400">
-                {user.first_name} {user.last_name}
-              </span>
               <a
                 href="/api/auth/logout"
                 className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-100 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                Logout
               </a>
             </>
           )}
