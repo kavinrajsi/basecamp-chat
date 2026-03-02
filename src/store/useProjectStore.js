@@ -4,7 +4,7 @@ const useProjectStore = create((set, get) => ({
   projects: [],
   loading: false,
   error: null,
-  viewMode: "grid", // "grid" | "list"
+  viewMode: "list", // "grid" | "list"
   statusFilter: "active", // "active" | "archived" | "all"
   searchQuery: "",
   sortBy: "updated", // "name" | "created" | "updated"

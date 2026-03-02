@@ -1,49 +1,88 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, ChevronRight } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { format, differenceInDays, startOfDay } from "date-fns";
+
+const AVATAR_COLORS = [
+  "bg-blue-600",
+  "bg-purple-600",
+  "bg-emerald-600",
+  "bg-red-500",
+  "bg-amber-500",
+  "bg-pink-600",
+  "bg-indigo-500",
+  "bg-teal-600",
+  "bg-cyan-600",
+  "bg-rose-500",
+];
+
+function getAvatarColor(name = "") {
+  let hash = 0;
+  for (const c of name) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(name = "") {
+  return (name || "?")
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = differenceInDays(startOfDay(now), startOfDay(date));
+  if (diffDays === 0) return format(date, "h:mm a");
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return format(date, "EEE");
+  return format(date, "M/d/yy");
+}
 
 export default function ProjectRow({ project }) {
-  const updated = project.updated_at
-    ? formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })
-    : null;
+  const avatarColor = getAvatarColor(project.name);
+  const initials = getInitials(project.name);
+  const time = formatTime(project.updated_at);
+  const isActive = project.status === "active";
 
   return (
     <Link
       href={`/projects/${project.id}`}
-      className="group flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800 px-5 py-4 transition-all hover:border-blue-500 hover:shadow-sm"
+      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 active:bg-gray-800 transition-colors border-b border-gray-700/40 last:border-0"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-3">
-          <h3 className="truncate text-sm font-semibold text-gray-100 group-hover:text-blue-400 transition-colors">
-            {project.name}
-          </h3>
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-              project.status === "active"
-                ? "bg-green-900/50 text-green-400"
-                : "bg-gray-700 text-gray-400"
-            }`}
-          >
-            {project.status}
-          </span>
-        </div>
-        {project.description && (
-          <p className="mt-1 truncate text-sm text-gray-400">
-            {project.description}
-          </p>
-        )}
+      {/* Avatar */}
+      <div
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${avatarColor} text-lg font-bold text-white select-none`}
+      >
+        {initials}
       </div>
 
-      <div className="ml-4 flex items-center gap-4 shrink-0">
-        {updated && (
-          <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500">
-            <Calendar className="h-3.5 w-3.5" />
-            {updated}
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[15px] font-semibold text-gray-100">
+            {project.name}
           </span>
-        )}
-        <ChevronRight className="h-4 w-4 text-gray-500 group-hover:text-blue-400" />
+          <span
+            className={`shrink-0 text-xs ${
+              isActive ? "text-green-400" : "text-gray-500"
+            }`}
+          >
+            {time}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <p className="truncate text-sm text-gray-400">
+            {project.description ||
+              (isActive ? "Active project" : "Archived project")}
+          </p>
+          {isActive && (
+            <span className="shrink-0 h-2.5 w-2.5 rounded-full bg-green-500" />
+          )}
+        </div>
       </div>
     </Link>
   );

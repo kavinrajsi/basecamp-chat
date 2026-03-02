@@ -12,7 +12,7 @@ export default function ProjectList({ projects }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="overflow-hidden rounded-2xl border border-gray-700/50 bg-gray-900">
       {projects.map((project) => (
         <ProjectRow key={project.id} project={project} />
       ))}
