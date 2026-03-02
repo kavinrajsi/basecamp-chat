@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import ProjectGrid from "@/components/ProjectGrid";
 import ProjectList from "@/components/ProjectList";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -28,7 +29,8 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <Header />
-      <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6">
+      <BottomNav />
+      <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6 pb-20">
         {/* Page header */}
         <div className="px-4 pt-5 pb-3 sm:px-0">
           <SearchBar />

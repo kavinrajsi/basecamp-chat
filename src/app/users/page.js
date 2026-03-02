@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users, CheckSquare, Square, Search, Briefcase, ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 
@@ -43,8 +44,8 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-gray-900">
       <Header />
-
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <BottomNav />
+      <main className="mx-auto max-w-4xl px-4 py-8 pb-24 sm:px-6 lg:px-8">
         {/* Page header */}
         <div className="mb-8">
           <h1 className="flex items-center gap-3 text-2xl font-bold text-gray-100">

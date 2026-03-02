@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckSquare, Square, Calendar, Folder, CheckCheck } from "lucide-react";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 
@@ -80,8 +81,8 @@ export default function MyTodosPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <Header />
-
-      <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6">
+      <BottomNav />
+      <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6 pb-20">
         {/* Header */}
         <div className="px-4 pt-5 pb-3 sm:px-0">
           <div className="flex items-center gap-3 mb-1">

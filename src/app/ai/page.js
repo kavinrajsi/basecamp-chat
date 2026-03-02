@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, ChevronDown, ChevronUp, Bot, User, Loader2, RotateCcw } from "lucide-react";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 
 const SUGGESTED_PROMPTS = [
   {
@@ -189,7 +190,7 @@ export default function AiPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-950">
       <Header />
-
+      <BottomNav />
       <main className="flex flex-1 flex-col mx-auto w-full max-w-2xl px-0 sm:px-4">
         {/* Page title */}
         <div className="px-4 pt-5 pb-3 sm:px-0">
@@ -281,7 +282,7 @@ export default function AiPage() {
         </div>
 
         {/* Input bar */}
-        <div className="sticky bottom-0 bg-gray-950 px-4 py-4 sm:px-0">
+        <div className="sticky bottom-16 bg-gray-950 px-4 py-4 sm:px-0 sm:bottom-0">
           {!isEmpty && (
             <div className="mb-3 flex flex-wrap gap-2">
               {SUGGESTED_PROMPTS.slice(0, 3).map((s) => (

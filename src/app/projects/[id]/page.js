@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import ProjectDetail from "@/components/ProjectDetail";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -50,6 +51,7 @@ export default function ProjectPage() {
       <div className="hidden sm:block">
         <Header />
       </div>
+      <BottomNav />
       <main className="sm:mx-auto sm:max-w-4xl sm:px-6 sm:py-8 lg:px-8">
         {loading && <LoadingSpinner />}
         {error && <ErrorMessage message={error} />}
