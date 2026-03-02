@@ -20,7 +20,7 @@ async function withRetry(fn, retries = 3) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
   const session = getSession();
 
   if (!session?.accessToken || !session?.accountId) {
@@ -28,7 +28,21 @@ export async function GET() {
   }
 
   const { accessToken, accountId } = session;
+  const fresh = new URL(request.url).searchParams.get("fresh") === "1";
 
+  // Serve from DB cache first for fast load (unless fresh is requested)
+  if (!fresh) {
+    try {
+      const cached = await getCachedPeople(accountId);
+      if (cached.length > 0) {
+        return NextResponse.json(cached);
+      }
+    } catch (dbErr) {
+      console.error("DB cache read failed:", dbErr.message);
+    }
+  }
+
+  // No cache or fresh requested — fetch from Basecamp API
   try {
     const raw = await withRetry(() => getAllPeople(accessToken, accountId));
 
@@ -42,7 +56,7 @@ export async function GET() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    // Cache to DB in the background (don't block the response)
+    // Cache to DB in the background
     upsertPeople(people, accountId).catch((err) =>
       console.error("DB upsert people failed:", err.message)
     );
@@ -53,17 +67,6 @@ export async function GET() {
 
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
-    }
-
-    // Fall back to DB cache
-    try {
-      const cached = await getCachedPeople(accountId);
-      if (cached.length > 0) {
-        console.log("Serving people from DB cache");
-        return NextResponse.json(cached);
-      }
-    } catch (dbErr) {
-      console.error("DB fallback failed:", dbErr.message);
     }
 
     return NextResponse.json({ error: "Failed to fetch people" }, { status: 500 });

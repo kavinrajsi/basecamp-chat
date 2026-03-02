@@ -47,6 +47,32 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS todo_cache (
+      account_id  BIGINT PRIMARY KEY,
+      data        JSONB NOT NULL,
+      synced_at   TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS users_cache (
+      account_id  BIGINT PRIMARY KEY,
+      data        JSONB NOT NULL,
+      synced_at   TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_cache (
+      account_id  BIGINT NOT NULL,
+      project_id  BIGINT NOT NULL,
+      data        JSONB NOT NULL,
+      synced_at   TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (account_id, project_id)
+    )
+  `;
+
   // One-time migrations
   await sql`DROP TABLE IF EXISTS todos`;
 
@@ -91,20 +117,24 @@ export async function upsertPeople(people, accountId) {
 
 export async function upsertLeaveAnswers(answers, accountId, questionId) {
   await initDb();
-  await Promise.all(
-    answers.map((a) =>
-      sql`
-        INSERT INTO leave_answers (id, account_id, question_id, creator_id, creator_name, creator_avatar, content, created_at, updated_at, synced_at)
-        VALUES (${a.id}, ${accountId}, ${questionId}, ${a.creator?.id ?? null}, ${a.creator?.name ?? null}, ${a.creator?.avatar_url ?? null}, ${a.content ?? null}, ${a.created_at ?? null}, ${a.updated_at ?? null}, NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          content        = EXCLUDED.content,
-          creator_name   = EXCLUDED.creator_name,
-          creator_avatar = EXCLUDED.creator_avatar,
-          updated_at     = EXCLUDED.updated_at,
-          synced_at      = NOW()
-      `
-    )
-  );
+  const CHUNK = 10;
+  for (let i = 0; i < answers.length; i += CHUNK) {
+    const chunk = answers.slice(i, i + CHUNK);
+    await Promise.all(
+      chunk.map((a) =>
+        sql`
+          INSERT INTO leave_answers (id, account_id, question_id, creator_id, creator_name, creator_avatar, content, created_at, updated_at, synced_at)
+          VALUES (${a.id}, ${accountId}, ${questionId}, ${a.creator?.id ?? null}, ${a.creator?.name ?? null}, ${a.creator?.avatar_url ?? null}, ${a.content ?? null}, ${a.created_at ?? null}, ${a.updated_at ?? null}, NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            content        = EXCLUDED.content,
+            creator_name   = EXCLUDED.creator_name,
+            creator_avatar = EXCLUDED.creator_avatar,
+            updated_at     = EXCLUDED.updated_at,
+            synced_at      = NOW()
+        `
+      )
+    );
+  }
 }
 
 export async function getCachedLeaveAnswers(accountId, questionId) {
@@ -121,8 +151,64 @@ export async function getCachedPeople(accountId) {
   return sql`SELECT * FROM people WHERE account_id = ${accountId} ORDER BY name ASC`;
 }
 
+export async function upsertTodoCache(accountId, data) {
+  await initDb();
+  await sql`
+    INSERT INTO todo_cache (account_id, data, synced_at)
+    VALUES (${accountId}, ${JSON.stringify(data)}, NOW())
+    ON CONFLICT (account_id) DO UPDATE SET
+      data      = EXCLUDED.data,
+      synced_at = NOW()
+  `;
+}
+
+export async function getCachedTodoData(accountId) {
+  await initDb();
+  const rows = await sql`SELECT data, synced_at FROM todo_cache WHERE account_id = ${accountId}`;
+  return rows[0] ?? null;
+}
+
 export async function getCachedProjects(accountId) {
   await initDb();
   return sql`SELECT * FROM projects WHERE account_id = ${accountId} ORDER BY updated_at DESC NULLS LAST`;
+}
+
+export async function upsertUsersCache(accountId, data) {
+  await initDb();
+  await sql`
+    INSERT INTO users_cache (account_id, data, synced_at)
+    VALUES (${accountId}, ${JSON.stringify(data)}, NOW())
+    ON CONFLICT (account_id) DO UPDATE SET
+      data      = EXCLUDED.data,
+      synced_at = NOW()
+  `;
+}
+
+export async function getCachedUsersData(accountId) {
+  await initDb();
+  const rows = await sql`SELECT data, synced_at FROM users_cache WHERE account_id = ${accountId}`;
+  return rows[0] ?? null;
+}
+
+export async function upsertProjectCache(accountId, projectId, data) {
+  await initDb();
+  await sql`
+    INSERT INTO project_cache (account_id, project_id, data, synced_at)
+    VALUES (${accountId}, ${projectId}, ${JSON.stringify(data)}, NOW())
+    ON CONFLICT (account_id, project_id) DO UPDATE SET
+      data      = EXCLUDED.data,
+      synced_at = NOW()
+  `;
+}
+
+export async function getCachedProjectData(accountId, projectId) {
+  await initDb();
+  const rows = await sql`SELECT data, synced_at FROM project_cache WHERE account_id = ${accountId} AND project_id = ${projectId}`;
+  return rows[0] ?? null;
+}
+
+export async function invalidateProjectCache(accountId, projectId) {
+  await initDb();
+  await sql`DELETE FROM project_cache WHERE account_id = ${accountId} AND project_id = ${projectId}`;
 }
 

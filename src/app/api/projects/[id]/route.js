@@ -10,6 +10,9 @@ import {
   getTodoLists,
   getTodos,
 } from "@/lib/basecamp";
+import { upsertProjectCache, getCachedProjectData, invalidateProjectCache } from "@/lib/db";
+
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 export async function GET(request, { params }) {
   const session = getSession();
@@ -18,93 +21,91 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { accessToken, accountId } = session;
+  const projectId = params.id;
+
   try {
+    // Serve from cache if fresh
+    const cached = await getCachedProjectData(accountId, projectId).catch(() => null);
+    if (cached) {
+      const age = Date.now() - new Date(cached.synced_at).getTime();
+      if (age < CACHE_TTL_MS) {
+        return NextResponse.json({
+          ...cached.data,
+          currentUserId: session.identity?.id ?? null,
+        });
+      }
+    }
+
     const [project, people] = await Promise.all([
-      getProject(session.accessToken, session.accountId, params.id),
-      getPeople(session.accessToken, session.accountId, params.id).catch(
-        () => []
-      ),
+      getProject(accessToken, accountId, projectId),
+      getPeople(accessToken, accountId, projectId).catch(() => []),
     ]);
 
-    // Find the Campfire (chat) dock item and fetch its data
-    let campfire = null;
-    let campfireLines = [];
-    let chatId = null;
-    const chatDock = project.dock?.find(
-      (d) => d.name === "chat" && d.enabled
-    );
+    // Parse dock IDs
+    const chatDock = project.dock?.find((d) => d.name === "chat" && d.enabled);
+    const chatId = chatDock?.url?.match(/chats\/(\d+)/)?.[1] || chatDock?.id || null;
 
-    if (chatDock) {
-      const chatIdMatch = chatDock.url?.match(/chats\/(\d+)/);
-      chatId = chatIdMatch?.[1] || chatDock.id;
+    const todoDock = project.dock?.find((d) => d.name === "todoset" && d.enabled);
+    const todosetId = todoDock?.url?.match(/todosets\/(\d+)/)?.[1] || todoDock?.id || null;
 
-      if (chatId) {
-        try {
-          const [chat, lines] = await Promise.all([
-            getCampfire(session.accessToken, session.accountId, params.id, chatId),
-            getCampfireLines(session.accessToken, session.accountId, params.id, chatId),
-          ]);
-          campfire = chat;
-          campfireLines = [...lines].reverse();
-        } catch (err) {
-          console.error("Failed to fetch campfire:", err?.response?.data || err.message);
-        }
-      }
-    }
-
-    // Find the Todoset dock item and fetch todos
-    let todoLists = [];
-    const todoDock = project.dock?.find(
-      (d) => d.name === "todoset" && d.enabled
-    );
-
-    if (todoDock) {
-      const todosetIdMatch = todoDock.url?.match(/todosets\/(\d+)/);
-      const todosetId = todosetIdMatch?.[1] || todoDock.id;
-
-      if (todosetId) {
-        try {
-          const lists = await getTodoLists(
-            session.accessToken,
-            session.accountId,
-            params.id,
-            todosetId
-          );
-          const listsWithTodos = await Promise.all(
-            lists.map(async (list) => {
-              const todos = await getTodos(
-                session.accessToken,
-                session.accountId,
-                params.id,
-                list.id
-              ).catch(() => []);
-              return { ...list, todos };
+    // Fetch campfire and todos in parallel
+    const [campfireResult, todoResult] = await Promise.all([
+      chatId
+        ? Promise.all([
+            getCampfire(accessToken, accountId, projectId, chatId),
+            getCampfireLines(accessToken, accountId, projectId, chatId),
+          ]).catch((err) => {
+            console.error("Failed to fetch campfire:", err?.response?.data || err.message);
+            return null;
+          })
+        : null,
+      todosetId
+        ? getTodoLists(accessToken, accountId, projectId, todosetId)
+            .then((lists) =>
+              Promise.all(
+                lists.map(async (list) => {
+                  const todos = await getTodos(accessToken, accountId, projectId, list.id).catch(() => []);
+                  return { ...list, todos };
+                })
+              )
+            )
+            .catch((err) => {
+              console.error("Failed to fetch todos:", err?.response?.data || err.message);
+              return [];
             })
-          );
-          todoLists = listsWithTodos;
-        } catch (err) {
-          console.error("Failed to fetch todos:", err?.response?.data || err.message);
-        }
-      }
-    }
+        : [],
+    ]);
 
-    return NextResponse.json({
-      ...project,
-      people,
-      campfire,
-      campfireLines,
-      chatId,
-      todoLists,
-    });
+    const campfire = campfireResult?.[0] || null;
+    const campfireLines = campfireResult ? [...campfireResult[1]].reverse() : [];
+    const todoLists = todoResult || [];
+
+    const data = { ...project, people, campfire, campfireLines, chatId, todoLists };
+
+    await upsertProjectCache(accountId, projectId, data).catch((e) =>
+      console.error("Failed to cache project data:", e.message)
+    );
+
+    return NextResponse.json({ ...data, currentUserId: session.identity?.id ?? null });
   } catch (error) {
     console.error("Failed to fetch project:", error?.response?.data || error.message);
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: "Failed to fetch project" },
-      { status: 500 }
-    );
+    if (error?.response?.status === 429) {
+      const retryAfter = parseInt(error.response.headers?.["retry-after"] || "10", 10);
+      return NextResponse.json(
+        { error: "API rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+    // Fall back to stale cache
+    const stale = await getCachedProjectData(accountId, projectId).catch(() => null);
+    if (stale) {
+      return NextResponse.json({ ...stale.data, currentUserId: session.identity?.id ?? null });
+    }
+    return NextResponse.json({ error: "Failed to fetch project" }, { status: 500 });
   }
 }
 
@@ -133,16 +134,16 @@ export async function POST(request, { params }) {
       content
     );
 
+    // Invalidate cache so next GET fetches fresh messages
+    await invalidateProjectCache(session.accountId, params.id).catch(() => {});
+
     return NextResponse.json(line);
   } catch (error) {
     console.error("Failed to send message:", error?.response?.data || error.message);
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: "Failed to send message" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 }
 
@@ -157,18 +158,13 @@ export async function DELETE(request, { params }) {
     const { recordingId } = await request.json();
 
     if (!recordingId) {
-      return NextResponse.json(
-        { error: "recordingId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "recordingId is required" }, { status: 400 });
     }
 
-    await trashRecording(
-      session.accessToken,
-      session.accountId,
-      params.id,
-      recordingId
-    );
+    await trashRecording(session.accessToken, session.accountId, params.id, recordingId);
+
+    // Invalidate cache so deleted message doesn't show on next load
+    await invalidateProjectCache(session.accountId, params.id).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -176,9 +172,6 @@ export async function DELETE(request, { params }) {
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: "Failed to delete message" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
   }
 }

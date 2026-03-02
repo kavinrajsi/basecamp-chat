@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getProjects, getProject, getTodoLists, getTodos } from "@/lib/basecamp";
+import { upsertTodoCache, getCachedTodoData } from "@/lib/db";
+
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -42,6 +45,15 @@ export async function GET() {
   const { accessToken, accountId } = session;
 
   try {
+    // Serve from cache if fresh
+    const cached = await getCachedTodoData(accountId).catch(() => null);
+    if (cached) {
+      const age = Date.now() - new Date(cached.synced_at).getTime();
+      if (age < CACHE_TTL_MS) {
+        return NextResponse.json(cached.data);
+      }
+    }
+
     const projects = await withRetry(() => getProjects(accessToken, accountId));
     const activeProjects = projects.filter((p) => p.status === "active");
 
@@ -113,12 +125,19 @@ export async function GET() {
     const results = await runWithConcurrency(projectTasks, 3);
     const data = results.filter(Boolean);
 
+    await upsertTodoCache(accountId, data).catch((e) =>
+      console.error("Failed to cache todo data:", e.message)
+    );
+
     return NextResponse.json(data);
   } catch (error) {
     console.error("Failed to fetch todo lists:", error?.response?.data || error.message);
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
+    // Fall back to stale cache rather than returning an error
+    const stale = await getCachedTodoData(accountId).catch(() => null);
+    if (stale) return NextResponse.json(stale.data);
     return NextResponse.json({ error: "Failed to fetch todo lists" }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import ProjectGrid from "@/components/ProjectGrid";
 import ProjectList from "@/components/ProjectList";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import ProjectListSkeleton from "@/components/ProjectListSkeleton";
 import ErrorMessage from "@/components/ErrorMessage";
 import SearchBar from "@/components/SearchBar";
 import ViewToggle from "@/components/ViewToggle";
@@ -32,13 +32,13 @@ export default function DashboardPage() {
       <BottomNav />
       <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6 pb-20">
         {/* Page header */}
-        <div className="px-4 pt-5 pb-3 sm:px-0">
+        <div className="sticky top-0 z-20 bg-gray-950 px-4 pt-5 pb-3 sm:px-0">
           <SearchBar />
         </div>
 
         {loading && (
           <div className="px-4 sm:px-0">
-            <LoadingSpinner />
+            <ProjectListSkeleton count={8} />
           </div>
         )}
         {error && (

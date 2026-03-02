@@ -19,37 +19,49 @@ export default function UsersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    fetch("/api/people")
-      .then((res) => {
-        if (res.status === 401) {
-          window.location.href = "/";
-          return null;
-        }
-        if (!res.ok) throw new Error("Failed to load members");
-        return res.json();
-      })
-      .then((data) => {
-        if (!data) return;
-        setAllUsers(data);
+    const loadPeople = async (url) => {
+      const res = await fetch(url);
+      if (res.status === 401) {
+        window.location.href = "/";
+        return null;
+      }
+      if (!res.ok) throw new Error("Failed to load members");
+      return res.json();
+    };
 
-        // If there are more than initial count, load the rest in background
-        if (data.length > INITIAL_COUNT) {
-          setLoadingMore(true);
-          let count = INITIAL_COUNT;
-          const loadBatch = () => {
-            count = Math.min(count + BATCH_SIZE, data.length);
-            setDisplayCount(count);
-            if (count < data.length) {
-              setTimeout(loadBatch, BATCH_DELAY);
-            } else {
-              setLoadingMore(false);
-            }
-          };
-          setTimeout(loadBatch, BATCH_DELAY);
-        }
+    const applyData = (data) => {
+      if (!data) return;
+      setAllUsers(data);
+      if (data.length > INITIAL_COUNT) {
+        setLoadingMore(true);
+        let count = INITIAL_COUNT;
+        const loadBatch = () => {
+          count = Math.min(count + BATCH_SIZE, data.length);
+          setDisplayCount(count);
+          if (count < data.length) {
+            setTimeout(loadBatch, BATCH_DELAY);
+          } else {
+            setLoadingMore(false);
+          }
+        };
+        setTimeout(loadBatch, BATCH_DELAY);
+      }
+    };
+
+    // Load from cache first, then refresh from API in background
+    loadPeople("/api/people")
+      .then((data) => {
+        applyData(data);
+        setLoading(false);
+        // Refresh from API in background
+        loadPeople("/api/people?fresh=1").then((fresh) => {
+          if (fresh && fresh.length > 0) applyData(fresh);
+        }).catch(() => {});
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
 
   const q = search.toLowerCase();

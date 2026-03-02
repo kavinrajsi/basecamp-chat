@@ -15,7 +15,7 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export default function ProjectDetail({ project, onMessageSent }) {
+export default function ProjectDetail({ project, onMessageSent, currentUserId }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showMentions, setShowMentions] = useState(false);
@@ -279,6 +279,7 @@ export default function ProjectDetail({ project, onMessageSent }) {
               : null;
           const showDateSep =
             lineDate && (!prevDate || !isEqual(lineDate, prevDate));
+          const isMe = currentUserId != null && String(line.creator?.id) === String(currentUserId);
 
           return (
             <div key={line.id}>
@@ -289,40 +290,50 @@ export default function ProjectDetail({ project, onMessageSent }) {
                   </span>
                 </div>
               )}
-              <div className="group flex gap-3">
+              <div className={`group flex gap-3 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                {/* Avatar */}
                 {line.creator?.avatar_url ? (
                   <img
                     src={line.creator.avatar_url}
                     alt={line.creator.name}
-                    className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-10 sm:w-10"
+                    className="h-9 w-9 shrink-0 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-600 text-sm font-medium text-gray-200 sm:h-10 sm:w-10">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-600 text-sm font-medium text-gray-200">
                     {line.creator?.name?.charAt(0)}
                   </div>
                 )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-100">
-                      {line.creator?.name}
+
+                {/* Bubble */}
+                <div className={`flex flex-col min-w-0 max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div className={`flex items-center gap-2 mb-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                    <span className="text-xs font-semibold text-gray-300">
+                      {isMe ? "You" : line.creator?.name}
                     </span>
                     {line.created_at && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         {format(new Date(line.created_at), "h:mmaaa")}
                       </span>
                     )}
                     <MessageMenu onAction={(action) => handleMessageAction(action, line)} />
                   </div>
+
                   <div
-                    className="mt-1 text-sm text-gray-300 prose prose-sm prose-invert max-w-none [&_a]:text-blue-400 [&_a]:underline [&_figure]:inline-flex [&_figure]:items-center [&_figure]:gap-2 [&_figure]:my-1 [&_figure_img]:rounded-md [&_figure_img]:max-h-48 [&_figure_img]:w-auto [&_figcaption]:inline [&_figcaption]:text-xs [&_figcaption]:text-gray-400 [&_bc-attachment]:inline-flex [&_bc-attachment]:items-center [&_bc-attachment]:gap-1 [&_bc-attachment]:align-middle [&_bc-attachment]:mr-1.5 [&_bc-attachment_figure]:m-0 [&_bc-attachment_figure]:p-0 [&_bc-attachment_figure]:inline-flex [&_bc-attachment_figure]:items-center [&_bc-attachment_figure]:gap-1 [&_bc-attachment_img]:h-5 [&_bc-attachment_img]:w-5 [&_bc-attachment_img]:rounded-full [&_bc-attachment_img]:object-cover [&_bc-attachment_img]:max-h-5 [&_bc-attachment_figcaption]:inline [&_bc-attachment_figcaption]:text-xs [&_bc-attachment_figcaption]:text-blue-400 [&_bc-attachment_figcaption]:font-medium"
+                    className={`rounded-2xl px-4 py-2.5 text-sm break-words overflow-hidden prose prose-sm prose-invert max-w-none
+                      ${isMe
+                        ? "bg-blue-600 text-white rounded-tr-sm [&_a]:text-blue-200"
+                        : "bg-gray-700 text-gray-100 rounded-tl-sm [&_a]:text-blue-400"
+                      }
+                      [&_a]:underline [&_a]:break-all [&_iframe]:max-w-full [&_iframe]:h-auto [&_video]:max-w-full [&_video]:h-auto [&_figure]:inline-flex [&_figure]:items-center [&_figure]:gap-2 [&_figure]:my-1 [&_figure_img]:rounded-md [&_figure_img]:max-h-48 [&_figure_img]:w-auto [&_figure_img]:max-w-full [&_figcaption]:inline [&_figcaption]:text-xs [&_figcaption]:text-gray-300 [&_bc-attachment]:inline-flex [&_bc-attachment]:items-center [&_bc-attachment]:gap-1 [&_bc-attachment]:align-middle [&_bc-attachment]:mr-1.5 [&_bc-attachment_figure]:m-0 [&_bc-attachment_figure]:p-0 [&_bc-attachment_figure]:inline-flex [&_bc-attachment_figure]:items-center [&_bc-attachment_figure]:gap-1 [&_bc-attachment_img]:h-5 [&_bc-attachment_img]:w-5 [&_bc-attachment_img]:rounded-full [&_bc-attachment_img]:object-cover [&_bc-attachment_img]:max-h-5 [&_bc-attachment_figcaption]:inline [&_bc-attachment_figcaption]:text-xs [&_bc-attachment_figcaption]:text-blue-300 [&_bc-attachment_figcaption]:font-medium`}
                     dangerouslySetInnerHTML={{ __html: line.content }}
                   />
+
                   {line.attachments && line.attachments.length > 0 && (
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-1.5 space-y-1.5">
                       {line.attachments.map((att) => (
                         <a
                           key={att.sgid || att.url}
-                          href={att.app_download_url || att.download_url || att.url}
+                          href={att.app_url || att.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 rounded-lg bg-gray-700/70 px-3 py-2.5 no-underline hover:bg-gray-600 transition-colors max-w-xs sm:max-w-sm"
@@ -681,9 +692,9 @@ export default function ProjectDetail({ project, onMessageSent }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto bg-gray-800">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-800">
           {mobileTab === "chat" ? (
-            <div className="p-4 space-y-5">
+            <div className="p-4 space-y-5 min-w-0">
               {messageContent}
             </div>
           ) : (
@@ -696,7 +707,7 @@ export default function ProjectDetail({ project, onMessageSent }) {
 
         {/* Sticky bottom input (chat only) */}
         {mobileTab === "chat" && (
-          <div className="sticky bottom-0 z-20">
+          <div className="sticky bottom-0 z-[100]">
             {chatInput}
           </div>
         )}

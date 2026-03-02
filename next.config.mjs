@@ -10,6 +10,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.basecamphq.com",
       },
+      {
+        protocol: "https",
+        hostname: "**.basecamp-static.com",
+      },
     ],
   },
   // Allow ngrok tunnel hostnames (needed for OAuth callbacks in local dev)

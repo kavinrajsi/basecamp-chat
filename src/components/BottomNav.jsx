@@ -15,6 +15,9 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  // Hide on project detail pages (mobile has its own layout)
+  if (pathname.startsWith("/projects/")) return null;
+
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-gray-700/80 bg-gray-900/95 backdrop-blur-md">
       <div className="flex items-center justify-around px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">

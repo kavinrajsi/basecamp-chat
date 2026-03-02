@@ -5,6 +5,7 @@ import { upsertLeaveAnswers, getCachedLeaveAnswers } from "@/lib/db";
 
 const BUCKET_ID = 1710547;
 const QUESTION_ID = 2113472792;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -23,6 +24,20 @@ async function withRetry(fn, retries = 3) {
   }
 }
 
+function rowsToAnswers(rows) {
+  return rows.map((row) => ({
+    id: row.id,
+    content: row.content,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    creator: {
+      id: row.creator_id,
+      name: row.creator_name,
+      avatar_url: row.creator_avatar,
+    },
+  }));
+}
+
 export async function GET() {
   const session = getSession();
 
@@ -32,16 +47,33 @@ export async function GET() {
 
   const { accessToken, accountId } = session;
 
+  // 1. Check DB cache first
+  try {
+    const cached = await getCachedLeaveAnswers(accountId, QUESTION_ID);
+    if (cached.length > 0) {
+      const cacheAge = Date.now() - new Date(cached[0].synced_at).getTime();
+      if (cacheAge < CACHE_TTL_MS) {
+        // Cache is fresh — return immediately
+        return NextResponse.json({ question: null, answers: rowsToAnswers(cached) });
+      }
+    }
+  } catch (dbErr) {
+    console.error("DB cache read failed:", dbErr.message);
+    // Continue to fetch from Basecamp
+  }
+
+  // 2. Cache is stale or empty — fetch from Basecamp, update DB, then return
   try {
     const [question, answers] = await Promise.all([
       withRetry(() => getQuestion(accessToken, accountId, BUCKET_ID, QUESTION_ID)),
       withRetry(() => getQuestionAnswers(accessToken, accountId, BUCKET_ID, QUESTION_ID)),
     ]);
 
-    // Cache answers to DB in background
-    upsertLeaveAnswers(answers, accountId, QUESTION_ID).catch((err) =>
-      console.error("DB upsert leave answers failed:", err.message)
-    );
+    try {
+      await upsertLeaveAnswers(answers, accountId, QUESTION_ID);
+    } catch (err) {
+      console.error("DB upsert leave answers failed:", err.message);
+    }
 
     return NextResponse.json({ question, answers });
   } catch (error) {
@@ -51,24 +83,12 @@ export async function GET() {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
 
-    // Fall back to DB cache
+    // 3. Basecamp failed — fall back to stale DB cache
     try {
       const cached = await getCachedLeaveAnswers(accountId, QUESTION_ID);
       if (cached.length > 0) {
-        console.log("Serving leave answers from DB cache");
-        // Reshape cached rows to match Basecamp API shape
-        const answers = cached.map((row) => ({
-          id: row.id,
-          content: row.content,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          creator: {
-            id: row.creator_id,
-            name: row.creator_name,
-            avatar_url: row.creator_avatar,
-          },
-        }));
-        return NextResponse.json({ question: null, answers });
+        console.log("Serving stale leave answers from DB cache");
+        return NextResponse.json({ question: null, answers: rowsToAnswers(cached) });
       }
     } catch (dbErr) {
       console.error("DB fallback failed:", dbErr.message);
