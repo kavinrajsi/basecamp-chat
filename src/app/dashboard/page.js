@@ -31,29 +31,7 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-2xl px-0 sm:px-4 sm:py-6">
         {/* Page header */}
         <div className="px-4 pt-5 pb-3 sm:px-0">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-100">Projects</h1>
-            <div className="flex items-center gap-2">
-              <SortSelect />
-              <ViewToggle />
-            </div>
-          </div>
           <SearchBar />
-          <div className="flex gap-2 mt-3">
-            {STATUS_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setStatusFilter(tab.value)}
-                className={`rounded-full px-4 py-1 text-sm font-medium transition-colors ${
-                  statusFilter === tab.value
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {loading && (

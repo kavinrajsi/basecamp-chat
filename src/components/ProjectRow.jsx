@@ -66,22 +66,11 @@ export default function ProjectRow({ project }) {
           <span className="truncate text-[15px] font-semibold text-gray-100">
             {project.name}
           </span>
-          <span
-            className={`shrink-0 text-xs ${
-              isActive ? "text-green-400" : "text-gray-500"
-            }`}
-          >
-            {time}
-          </span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p className="truncate text-sm text-gray-400">
-            {project.description ||
-              (isActive ? "Active project" : "Archived project")}
+            {project.description || ""}
           </p>
-          {isActive && (
-            <span className="shrink-0 h-2.5 w-2.5 rounded-full bg-green-500" />
-          )}
         </div>
       </div>
     </Link>

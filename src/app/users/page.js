@@ -120,22 +120,6 @@ export default function UsersPage() {
                           {user.email && (
                             <p className="mt-0.5 text-xs text-gray-400">{user.email}</p>
                           )}
-
-                          {/* Projects */}
-                          {user.projects.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {user.projects.map((p) => (
-                                <Link
-                                  key={p.id}
-                                  href={`/projects/${p.id}`}
-                                  className="flex items-center gap-1 rounded-md bg-gray-700/60 px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-600 hover:text-gray-100 transition-colors"
-                                >
-                                  <Briefcase className="h-3 w-3" />
-                                  {p.name}
-                                </Link>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
                         {/* Todo stats */}

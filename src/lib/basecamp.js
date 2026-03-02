@@ -127,6 +127,28 @@ export async function getTodos(accessToken, accountId, projectId, todolistId) {
   return response.data;
 }
 
+export async function getMessages(accessToken, accountId, projectId, messageBoardId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/message_boards/${messageBoardId}/messages.json`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
+export async function getScheduleEntries(accessToken, accountId, projectId, scheduleId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/schedules/${scheduleId}/entries.json`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
 export async function getPeople(accessToken, accountId, projectId) {
   let url = `https://3.basecampapi.com/${accountId}/projects/${projectId}/people.json`;
   const headers = {

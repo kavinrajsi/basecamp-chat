@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Wifi, WifiOff, Users, CheckSquare } from "lucide-react";
+import { LogOut, Wifi, WifiOff, Users, CheckSquare, Sparkles } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState(null);
@@ -72,6 +72,17 @@ export default function Header() {
           >
             <CheckSquare className="h-4 w-4" />
             My Todos
+          </Link>
+          <Link
+            href="/ai"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              pathname === "/ai"
+                ? "bg-purple-900/60 text-purple-300"
+                : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            AI
           </Link>
         </nav>
 
