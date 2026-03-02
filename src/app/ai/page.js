@@ -191,6 +191,11 @@ export default function AiPage() {
     <div className="flex min-h-screen flex-col bg-gray-950">
       <Header />
       <BottomNav />
+      {/* Work-in-progress banner */}
+      <div className="w-full px-4 py-3 text-center text-sm font-semibold" style={{ backgroundColor: '#facc15', color: '#000' }}>
+        We are currently working on this page. Please do not visit this page again until further notice.
+      </div>
+
       <main className="flex flex-1 flex-col mx-auto w-full max-w-2xl px-0 sm:px-4">
         {/* Page title */}
         <div className="px-4 pt-5 pb-3 sm:px-0">
