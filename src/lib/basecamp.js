@@ -127,6 +127,17 @@ export async function getTodos(accessToken, accountId, projectId, todolistId) {
   return response.data;
 }
 
+export async function getMyAssignments(accessToken, accountId, groupBy = "bucket") {
+  const url = `https://3.basecampapi.com/${accountId}/my/assignments.json?group_by=${groupBy}`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
 export async function getMessages(accessToken, accountId, projectId, messageBoardId) {
   const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/message_boards/${messageBoardId}/messages.json`;
   const response = await axios.get(url, {
