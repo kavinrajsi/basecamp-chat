@@ -12,6 +12,8 @@ const nextConfig = {
       },
     ],
   },
+  // Allow ngrok tunnel hostnames (needed for OAuth callbacks in local dev)
+  allowedDevOrigins: ["*.ngrok-free.app", "*.ngrok.io"],
 };
 
 export default nextConfig;
