@@ -56,8 +56,7 @@ export async function GET(request) {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    // Cache to DB in the background
-    upsertPeople(people, accountId).catch((err) =>
+    await upsertPeople(people, accountId).catch((err) =>
       console.error("DB upsert people failed:", err.message)
     );
 

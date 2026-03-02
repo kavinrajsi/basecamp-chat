@@ -73,9 +73,6 @@ export async function initDb() {
     )
   `;
 
-  // One-time migrations
-  await sql`DROP TABLE IF EXISTS todos`;
-
   initialized = true;
 }
 

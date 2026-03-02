@@ -16,19 +16,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log("[callback] code received:", code);
-
     const tokenData = await exchangeCodeForToken(code);
-    console.log("[callback] tokenData:", JSON.stringify(tokenData, null, 2));
-
     const authData = await getAuthorization(tokenData.access_token);
-    console.log("[callback] authData:", JSON.stringify(authData, null, 2));
 
     // Find the first Basecamp 3 account
     const bc3Account = authData.accounts?.find(
       (a) => a.product === "bc3" || a.product === "bcx"
     );
-    console.log("[callback] bc3Account:", JSON.stringify(bc3Account, null, 2));
 
     const session = {
       accessToken: tokenData.access_token,
@@ -37,17 +31,11 @@ export async function GET(request) {
       accountId: bc3Account?.id,
       identity: authData.identity,
     };
-    console.log("[callback] session to store:", JSON.stringify(session, null, 2));
 
     setSessionCookie(session);
-    console.log("[callback] cookie set, redirecting to /dashboard");
-
     return NextResponse.redirect(new URL("/dashboard", origin));
   } catch (error) {
-    console.error("[callback] FULL ERROR:", error);
-    console.error("[callback] response status:", error?.response?.status);
-    console.error("[callback] response data:", JSON.stringify(error?.response?.data, null, 2));
-    console.error("[callback] message:", error.message);
+    console.error("[callback] auth failed:", error?.response?.status, error.message);
     return NextResponse.redirect(new URL("/?error=auth_failed", origin));
   }
 }

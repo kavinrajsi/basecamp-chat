@@ -51,7 +51,8 @@ export async function GET() {
   try {
     const cached = await getCachedLeaveAnswers(accountId, QUESTION_ID);
     if (cached.length > 0) {
-      const cacheAge = Date.now() - new Date(cached[0].synced_at).getTime();
+      const maxSynced = Math.max(...cached.map((r) => new Date(r.synced_at).getTime()));
+      const cacheAge = Date.now() - maxSynced;
       if (cacheAge < CACHE_TTL_MS) {
         // Cache is fresh — return immediately
         return NextResponse.json({ question: null, answers: rowsToAnswers(cached) });

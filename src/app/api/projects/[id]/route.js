@@ -14,6 +14,23 @@ import { upsertProjectCache, getCachedProjectData, invalidateProjectCache } from
 
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function withRetry(fn, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err?.response?.status === 429 && attempt < retries - 1) {
+        const wait = parseInt(err.response.headers?.["retry-after"] || "8", 10);
+        await sleep(wait * 1000);
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 export async function GET(request, { params }) {
   const session = getSession();
 
@@ -38,8 +55,8 @@ export async function GET(request, { params }) {
     }
 
     const [project, people] = await Promise.all([
-      getProject(accessToken, accountId, projectId),
-      getPeople(accessToken, accountId, projectId).catch(() => []),
+      withRetry(() => getProject(accessToken, accountId, projectId)),
+      withRetry(() => getPeople(accessToken, accountId, projectId)).catch(() => []),
     ]);
 
     // Parse dock IDs
@@ -53,19 +70,19 @@ export async function GET(request, { params }) {
     const [campfireResult, todoResult] = await Promise.all([
       chatId
         ? Promise.all([
-            getCampfire(accessToken, accountId, projectId, chatId),
-            getCampfireLines(accessToken, accountId, projectId, chatId),
+            withRetry(() => getCampfire(accessToken, accountId, projectId, chatId)),
+            withRetry(() => getCampfireLines(accessToken, accountId, projectId, chatId)),
           ]).catch((err) => {
             console.error("Failed to fetch campfire:", err?.response?.data || err.message);
             return null;
           })
         : null,
       todosetId
-        ? getTodoLists(accessToken, accountId, projectId, todosetId)
+        ? withRetry(() => getTodoLists(accessToken, accountId, projectId, todosetId))
             .then((lists) =>
               Promise.all(
                 lists.map(async (list) => {
-                  const todos = await getTodos(accessToken, accountId, projectId, list.id).catch(() => []);
+                  const todos = await withRetry(() => getTodos(accessToken, accountId, projectId, list.id)).catch(() => []);
                   return { ...list, todos };
                 })
               )

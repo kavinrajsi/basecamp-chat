@@ -178,7 +178,7 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
 
   function isOverdue(dateStr) {
     if (!dateStr) return false;
-    return new Date(dateStr) < new Date() ;
+    return dateStr < new Date().toISOString().slice(0, 10);
   }
 
   const chatInput = project.chatId && (

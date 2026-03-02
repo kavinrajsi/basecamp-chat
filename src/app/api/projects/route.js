@@ -15,8 +15,7 @@ export async function GET() {
   try {
     const projects = await getProjects(session.accessToken, accountId);
 
-    // Cache to Neon in the background (don't block the response)
-    upsertProjects(projects, accountId).catch((err) =>
+    await upsertProjects(projects, accountId).catch((err) =>
       console.error("Neon upsert failed:", err.message)
     );
 

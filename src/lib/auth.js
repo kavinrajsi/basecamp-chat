@@ -5,7 +5,8 @@ const ALGORITHM = "aes-256-gcm";
 const SESSION_COOKIE = "bc_session";
 
 function getKey() {
-  const secret = process.env.SESSION_SECRET || "";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET environment variable is not set");
   return crypto.scryptSync(secret, "salt", 32);
 }
 

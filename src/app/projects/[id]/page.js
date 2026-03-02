@@ -67,7 +67,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     fetchProject();
-  }, [id]);
+  }, [id, fetchProject]);
 
   return (
     <div className="min-h-screen bg-gray-900">
