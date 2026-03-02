@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { format, isEqual, startOfDay, differenceInDays, addDays, subDays } from "date-fns";
-import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3, WifiOff } from "lucide-react";
+import { Calendar, Users, ArrowLeft, ExternalLink, MessageCircle, Send, FileText, Download, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3, WifiOff, Sparkles, AlignLeft, TrendingUp, Bot, Smile } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 import MentionDropdown from "./MentionDropdown";
@@ -26,9 +26,15 @@ export default function ProjectDetail({ project, onMessageSent }) {
   const [mobileTab, setMobileTab] = useState("chat");
   const [todoView, setTodoView] = useState("list");
   const [isOffline, setIsOffline] = useState(false);
+  const [aiMode, setAiMode] = useState(null);
+  const [aiResult, setAiResult] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiChatHistory, setAiChatHistory] = useState([]);
+  const [aiChatInput, setAiChatInput] = useState("");
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const desktopInputRef = useRef(null);
+  const aiChatEndRef = useRef(null);
 
   const people = project.people || [];
   const filteredPeople = people.filter((p) =>
@@ -38,6 +44,10 @@ export default function ProjectDetail({ project, onMessageSent }) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [project.campfireLines]);
+
+  useEffect(() => {
+    aiChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [aiChatHistory]);
 
   useEffect(() => {
     function sync() {
@@ -124,6 +134,95 @@ export default function ProjectDetail({ project, onMessageSent }) {
       result = result.replace(pattern, `<strong>@${person.name}</strong>`);
     }
     return result;
+  }
+
+  async function runAI(action) {
+    setAiMode(action);
+    setAiResult("");
+    setAiLoading(true);
+
+    const projectData = {
+      name: project.name,
+      campfireLines: (project.campfireLines || []).slice(-50),
+      todoLists: project.todoLists || [],
+      people: project.people || [],
+    };
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, projectData }),
+      });
+      if (!res.ok) throw new Error("Request failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setAiResult((prev) => prev + decoder.decode(value, { stream: true }));
+      }
+    } catch {
+      setAiResult("Failed to get AI response. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function startAiChat() {
+    setAiMode("chat");
+    setAiResult("");
+    setAiChatHistory([]);
+  }
+
+  async function sendAiChat(e) {
+    e.preventDefault();
+    const userText = aiChatInput.trim();
+    if (!userText || aiLoading) return;
+
+    const newHistory = [...aiChatHistory, { role: "user", content: userText }];
+    setAiChatHistory([...newHistory, { role: "assistant", content: "" }]);
+    setAiChatInput("");
+    setAiLoading(true);
+
+    const projectData = {
+      name: project.name,
+      campfireLines: (project.campfireLines || []).slice(-50),
+      todoLists: project.todoLists || [],
+      people: project.people || [],
+    };
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "chat", projectData, chatHistory: newHistory }),
+      });
+      if (!res.ok) throw new Error("Request failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        assistantContent += decoder.decode(value, { stream: true });
+        setAiChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+          return updated;
+        });
+      }
+    } catch {
+      setAiChatHistory((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: "Sorry, I encountered an error. Please try again." };
+        return updated;
+      });
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   async function handleSend(e) {
@@ -629,6 +728,100 @@ export default function ProjectDetail({ project, onMessageSent }) {
     </div>
   );
 
+  const aiFeatures = [
+    { action: "summarize", icon: AlignLeft, label: "Summarize Chat", desc: "Summarize long threads instantly" },
+    { action: "analyze", icon: TrendingUp, label: "Project Analysis", desc: "Analyze project health" },
+    { action: "chat", icon: Bot, label: "AI Chatbot", desc: "Ask questions about your project" },
+    { action: "sentiment", icon: Smile, label: "Sentiment Analysis", desc: "Understand team mood" },
+  ];
+
+  const aiContent = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        {aiFeatures.map(({ action, icon: Icon, label, desc }) => (
+          <button
+            key={action}
+            onClick={() => (action === "chat" ? startAiChat() : runAI(action))}
+            disabled={aiLoading}
+            className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
+              aiMode === action
+                ? "border-purple-500 bg-purple-900/20 text-purple-300"
+                : "border-gray-600 bg-gray-900/40 text-gray-300 hover:border-gray-500 hover:bg-gray-700/40"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            <span className="text-xs font-semibold">{label}</span>
+            <span className="text-[10px] text-gray-400">{desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {aiMode !== "chat" && aiLoading && !aiResult && (
+        <div className="flex items-center gap-2 rounded-lg border border-gray-700/50 bg-gray-900/60 p-4">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          <span className="text-sm text-gray-400">Thinking...</span>
+        </div>
+      )}
+
+      {aiMode !== "chat" && aiResult && (
+        <div className="rounded-lg border border-gray-700/50 bg-gray-900/60 p-4">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-300">{aiResult}</p>
+          {aiLoading && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+              <span className="text-xs text-gray-500">Generating...</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {aiMode === "chat" && (
+        <div className="overflow-hidden rounded-lg border border-gray-700/50 bg-gray-900/60">
+          <div className="max-h-64 overflow-y-auto p-3 space-y-3">
+            {aiChatHistory.length === 0 && (
+              <p className="text-center text-sm text-gray-500 py-4">Ask anything about this project...</p>
+            )}
+            {aiChatHistory.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                    msg.role === "user" ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-200"
+                  }`}
+                >
+                  {msg.content || (
+                    <span className="flex items-center gap-1.5 text-gray-400">
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent inline-block" />
+                      Thinking...
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={aiChatEndRef} />
+          </div>
+          <div className="border-t border-gray-700/50 p-3">
+            <form onSubmit={sendAiChat} className="flex gap-2">
+              <input
+                value={aiChatInput}
+                onChange={(e) => setAiChatInput(e.target.value)}
+                placeholder="Ask about this project..."
+                disabled={aiLoading}
+                className="flex-1 rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-purple-500 focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!aiChatInput.trim() || aiLoading}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       {/* ===== MOBILE: full-screen layout with tabs ===== */}
@@ -652,19 +845,19 @@ export default function ProjectDetail({ project, onMessageSent }) {
             )}
           </div>
           {/* Tab bar */}
-          {hasTodos && (
-            <div className="flex border-t border-gray-700">
-              <button
-                onClick={() => setMobileTab("chat")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
-                  mobileTab === "chat"
-                    ? "text-blue-400 border-b-2 border-blue-400"
-                    : "text-gray-400"
-                }`}
-              >
-                <MessageCircle className="h-3.5 w-3.5" />
-                Chat
-              </button>
+          <div className="flex border-t border-gray-700">
+            <button
+              onClick={() => setMobileTab("chat")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+                mobileTab === "chat"
+                  ? "text-blue-400 border-b-2 border-blue-400"
+                  : "text-gray-400"
+              }`}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Chat
+            </button>
+            {hasTodos && (
               <button
                 onClick={() => setMobileTab("todos")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
@@ -676,8 +869,19 @@ export default function ProjectDetail({ project, onMessageSent }) {
                 <ListTodo className="h-3.5 w-3.5" />
                 Todos
               </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={() => setMobileTab("ai")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+                mobileTab === "ai"
+                  ? "text-purple-400 border-b-2 border-purple-400"
+                  : "text-gray-400"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
@@ -686,10 +890,14 @@ export default function ProjectDetail({ project, onMessageSent }) {
             <div className="p-4 space-y-5">
               {messageContent}
             </div>
-          ) : (
+          ) : mobileTab === "todos" ? (
             <div className="p-4">
               <div className="flex justify-end mb-3">{todoViewToggle}</div>
               {todoView === "list" ? todoContent : ganttContent}
+            </div>
+          ) : (
+            <div className="p-4">
+              {aiContent}
             </div>
           )}
         </div>
@@ -753,6 +961,15 @@ export default function ProjectDetail({ project, onMessageSent }) {
               {todoView === "list" ? todoContent : ganttContent}
             </div>
           )}
+
+          {/* AI Features */}
+          <div className="mb-6">
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-200">
+              <Sparkles className="h-4 w-4 text-purple-400" />
+              AI Insights
+            </h2>
+            {aiContent}
+          </div>
 
           {/* People */}
           {people.length > 0 && (
