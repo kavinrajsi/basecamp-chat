@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { LogOut, Wifi, WifiOff, CalendarCheck } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState(null);
@@ -39,6 +39,13 @@ export default function Header() {
         </Link>
 
         <div className="flex items-center gap-4">
+          <Link
+            href="/summary"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-100 transition-colors"
+          >
+            <CalendarCheck className="h-4 w-4" />
+            <span className="hidden sm:inline">Today</span>
+          </Link>
           <button
             onClick={toggleOffline}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
