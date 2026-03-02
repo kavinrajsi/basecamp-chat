@@ -37,14 +37,20 @@ export async function getAuthorization(accessToken) {
 }
 
 export async function getProjects(accessToken, accountId) {
-  const url = `https://3.basecampapi.com/${accountId}/projects.json`;
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  });
-  return response.data;
+  let url = `https://3.basecampapi.com/${accountId}/projects.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
 }
 
 export async function getProject(accessToken, accountId, projectId) {
@@ -116,15 +122,21 @@ export async function getTodoLists(accessToken, accountId, projectId, todosetId)
   return response.data;
 }
 
-export async function getTodos(accessToken, accountId, projectId, todolistId) {
-  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todolists/${todolistId}/todos.json`;
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  });
-  return response.data;
+export async function getTodos(accessToken, accountId, projectId, todolistId, completed = false) {
+  let url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todolists/${todolistId}/todos.json?completed=${completed}`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
 }
 
 export async function getMyAssignments(accessToken, accountId, groupBy = "bucket") {
@@ -158,6 +170,23 @@ export async function getScheduleEntries(accessToken, accountId, projectId, sche
     },
   });
   return response.data;
+}
+
+export async function getAllPeople(accessToken, accountId) {
+  let url = `https://3.basecampapi.com/${accountId}/people.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
 }
 
 export async function getPeople(accessToken, accountId, projectId) {

@@ -21,19 +21,14 @@ export async function initDb() {
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS todos (
-      id           BIGINT PRIMARY KEY,
-      account_id   BIGINT NOT NULL,
-      title        TEXT NOT NULL,
-      completed    BOOLEAN DEFAULT FALSE,
-      due_on       DATE,
-      created_at   TIMESTAMPTZ,
-      type         TEXT,
-      list_name    TEXT,
-      project_id   BIGINT,
-      project_name TEXT,
-      app_url      TEXT,
-      synced_at    TIMESTAMPTZ DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS people (
+      id          BIGINT PRIMARY KEY,
+      account_id  BIGINT NOT NULL,
+      name        TEXT NOT NULL,
+      email       TEXT,
+      avatar_url  TEXT,
+      title       TEXT,
+      synced_at   TIMESTAMPTZ DEFAULT NOW()
     )
   `;
 
@@ -58,25 +53,27 @@ export async function upsertProjects(projects, accountId) {
   );
 }
 
-export async function upsertTodos(todos, accountId) {
+export async function upsertPeople(people, accountId) {
   await initDb();
   await Promise.all(
-    todos.map((t) =>
+    people.map((p) =>
       sql`
-        INSERT INTO todos (id, account_id, title, completed, due_on, created_at, type, list_name, project_id, project_name, app_url, synced_at)
-        VALUES (${t.id}, ${accountId}, ${t.title}, ${t.completed}, ${t.due_on ?? null}, ${t.created_at ?? null}, ${t.type ?? null}, ${t.listName ?? null}, ${t.projectId ?? null}, ${t.projectName ?? null}, ${t.appUrl ?? null}, NOW())
+        INSERT INTO people (id, account_id, name, email, avatar_url, title, synced_at)
+        VALUES (${p.id}, ${accountId}, ${p.name}, ${p.email ?? null}, ${p.avatar_url ?? null}, ${p.title ?? null}, NOW())
         ON CONFLICT (id) DO UPDATE SET
-          title        = EXCLUDED.title,
-          completed    = EXCLUDED.completed,
-          due_on       = EXCLUDED.due_on,
-          list_name    = EXCLUDED.list_name,
-          project_id   = EXCLUDED.project_id,
-          project_name = EXCLUDED.project_name,
-          app_url      = EXCLUDED.app_url,
-          synced_at    = NOW()
+          name       = EXCLUDED.name,
+          email      = EXCLUDED.email,
+          avatar_url = EXCLUDED.avatar_url,
+          title      = EXCLUDED.title,
+          synced_at  = NOW()
       `
     )
   );
+}
+
+export async function getCachedPeople(accountId) {
+  await initDb();
+  return sql`SELECT * FROM people WHERE account_id = ${accountId} ORDER BY name ASC`;
 }
 
 export async function getCachedProjects(accountId) {
@@ -84,7 +81,3 @@ export async function getCachedProjects(accountId) {
   return sql`SELECT * FROM projects WHERE account_id = ${accountId} ORDER BY updated_at DESC NULLS LAST`;
 }
 
-export async function getCachedTodos(accountId) {
-  await initDb();
-  return sql`SELECT * FROM todos WHERE account_id = ${accountId} ORDER BY due_on ASC NULLS LAST`;
-}

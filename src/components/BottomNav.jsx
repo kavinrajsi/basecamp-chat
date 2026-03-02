@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Users, CheckSquare, Sparkles } from "lucide-react";
+import { FolderOpen, Users, ListTodo, Sparkles } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Projects", icon: FolderOpen },
   { href: "/users", label: "Users", icon: Users },
-  { href: "/my-todos", label: "My Todos", icon: CheckSquare },
+  { href: "/todo-list", label: "Todos", icon: ListTodo },
   { href: "/ai", label: "AI", icon: Sparkles },
 ];
 

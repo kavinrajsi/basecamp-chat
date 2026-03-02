@@ -1,45 +1,68 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Users, CheckSquare, Square, Search, Briefcase, ChevronRight } from "lucide-react";
+import { Users, Search } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 
+const INITIAL_COUNT = 20;
+const BATCH_SIZE = 20;
+const BATCH_DELAY = 100; // ms between batches
+
 export default function UsersPage() {
-  const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/people")
       .then((res) => {
         if (res.status === 401) {
           window.location.href = "/";
           return null;
         }
-        if (!res.ok) throw new Error("Failed to load users");
+        if (!res.ok) throw new Error("Failed to load members");
         return res.json();
       })
       .then((data) => {
-        if (data) setUsers(data);
+        if (!data) return;
+        setAllUsers(data);
+
+        // If there are more than initial count, load the rest in background
+        if (data.length > INITIAL_COUNT) {
+          setLoadingMore(true);
+          let count = INITIAL_COUNT;
+          const loadBatch = () => {
+            count = Math.min(count + BATCH_SIZE, data.length);
+            setDisplayCount(count);
+            if (count < data.length) {
+              setTimeout(loadBatch, BATCH_DELAY);
+            } else {
+              setLoadingMore(false);
+            }
+          };
+          setTimeout(loadBatch, BATCH_DELAY);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = users.filter(
+  const q = search.toLowerCase();
+  const filtered = allUsers.filter(
     (u) =>
-      u.name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase()) ||
-      u.title?.toLowerCase().includes(search.toLowerCase())
+      !q ||
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.title?.toLowerCase().includes(q)
   );
 
-  const totalTodos = users.reduce((sum, u) => sum + u.total, 0);
-  const totalIncomplete = users.reduce((sum, u) => sum + u.incomplete, 0);
+  // When searching, show all filtered results; otherwise respect displayCount
+  const visible = q ? filtered : filtered.slice(0, displayCount);
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -47,20 +70,31 @@ export default function UsersPage() {
       <BottomNav />
       <main className="mx-auto max-w-4xl px-4 py-8 pb-24 sm:px-6 lg:px-8">
         {/* Page header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="flex items-center gap-3 text-2xl font-bold text-gray-100">
             <Users className="h-7 w-7 text-blue-400" />
             Team Members
           </h1>
           {!loading && !error && (
             <p className="mt-1 text-sm text-gray-400">
-              {users.length} members across all active projects &mdash;{" "}
-              {totalIncomplete} open todos out of {totalTodos} total
+              {allUsers.length} members across all active projects
+              {loadingMore && (
+                <span className="ml-2 text-gray-600">· loading…</span>
+              )}
             </p>
           )}
         </div>
 
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5">
+                <div className="h-14 w-14 rounded-full bg-gray-700 animate-pulse" />
+                <div className="h-2.5 w-12 rounded bg-gray-700 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        )}
         {error && <ErrorMessage message={error} />}
 
         {!loading && !error && (
@@ -77,91 +111,30 @@ export default function UsersPage() {
               />
             </div>
 
-            {/* User list */}
-            {filtered.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-12">No members found.</p>
-            ) : (
-              <div className="space-y-3">
-                {filtered.map((user, idx) => {
-                  const pct = user.total > 0 ? Math.round((user.completed / user.total) * 100) : 0;
-                  return (
-                    <div
-                      key={user.id}
-                      className="rounded-xl border border-gray-700 bg-gray-800 p-4 transition-colors hover:border-gray-600"
-                    >
-                      <div className="flex items-start gap-4">
-                        {/* Rank */}
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-700 text-xs font-bold text-gray-400">
-                          {idx + 1}
-                        </div>
-
-                        {/* Avatar */}
-                        {user.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt={user.name}
-                            className="h-12 w-12 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-900/50 text-lg font-bold text-blue-400">
-                            {user.name?.charAt(0)}
-                          </div>
-                        )}
-
-                        {/* Info */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-gray-100">{user.name}</span>
-                            {user.title && (
-                              <span className="rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-400">
-                                {user.title}
-                              </span>
-                            )}
-                          </div>
-                          {user.email && (
-                            <p className="mt-0.5 text-xs text-gray-400">{user.email}</p>
-                          )}
-                        </div>
-
-                        {/* Todo stats */}
-                        <div className="shrink-0 text-right">
-                          <div className="text-2xl font-bold text-gray-100">{user.total}</div>
-                          <div className="text-xs text-gray-400">todos</div>
-                        </div>
+            {/* Photo grid */}
+            {visible.length > 0 ? (
+              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+                {visible.map((user) => (
+                  <div key={user.id} className="flex flex-col items-center gap-1.5">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.name}
+                        className="h-14 w-14 rounded-full object-cover ring-2 ring-gray-700"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-900/50 text-xl font-bold text-blue-400 ring-2 ring-gray-700">
+                        {user.name?.charAt(0)}
                       </div>
-
-                      {/* Todo breakdown + progress bar */}
-                      {user.total > 0 && (
-                        <div className="mt-4 pl-[88px]">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-3 text-xs text-gray-400">
-                              <span className="flex items-center gap-1">
-                                <CheckSquare className="h-3.5 w-3.5 text-green-500" />
-                                {user.completed} done
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Square className="h-3.5 w-3.5 text-gray-500" />
-                                {user.incomplete} open
-                              </span>
-                            </div>
-                            <span className="text-xs font-medium text-gray-400">{pct}%</span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-gray-700">
-                            <div
-                              className="h-1.5 rounded-full bg-green-500 transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {user.total === 0 && (
-                        <p className="mt-2 pl-[88px] text-xs text-gray-500 italic">No todos assigned</p>
-                      )}
-                    </div>
-                  );
-                })}
+                    )}
+                    <span className="w-full text-center text-[11px] leading-tight text-gray-300 line-clamp-2">
+                      {user.name}
+                    </span>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="py-12 text-center text-sm text-gray-400">No members found.</p>
             )}
           </>
         )}

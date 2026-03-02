@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { exchangeCodeForToken, getAuthorization } from "@/lib/basecamp";
 import { setSessionCookie } from "@/lib/auth";
 
-function getOrigin(request) {
-  const url = new URL(request.url);
-  return url.origin;
+function getOrigin() {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:80";
 }
 
 export async function GET(request) {
-  const origin = getOrigin(request);
+  const origin = getOrigin();
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
 

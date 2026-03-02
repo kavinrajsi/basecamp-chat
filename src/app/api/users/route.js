@@ -8,6 +8,36 @@ import {
   getTodos,
 } from "@/lib/basecamp";
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function withRetry(fn, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err?.response?.status === 429 && attempt < retries - 1) {
+        const wait = parseInt(err.response.headers?.["retry-after"] || "8", 10);
+        await sleep(wait * 1000);
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+async function runWithConcurrency(tasks, limit) {
+  const results = new Array(tasks.length);
+  let index = 0;
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, worker));
+  return results;
+}
+
 export async function GET() {
   const session = getSession();
 
@@ -16,52 +46,44 @@ export async function GET() {
   }
 
   try {
-    const projects = await getProjects(session.accessToken, session.accountId);
+    const projects = await withRetry(() =>
+      getProjects(session.accessToken, session.accountId)
+    );
     const activeProjects = projects.filter((p) => p.status === "active");
 
-    // Fetch people + todos for all projects in parallel
-    const projectData = await Promise.all(
-      activeProjects.map(async (project) => {
-        const [people, fullProject] = await Promise.all([
-          getPeople(session.accessToken, session.accountId, project.id).catch(() => []),
-          getProject(session.accessToken, session.accountId, project.id).catch(() => null),
-        ]);
+    // Fetch people + todos for projects with limited concurrency (3 at a time)
+    const projectTasks = activeProjects.map((project) => async () => {
+      const [people, fullProject] = await Promise.all([
+        withRetry(() => getPeople(session.accessToken, session.accountId, project.id)).catch(() => []),
+        withRetry(() => getProject(session.accessToken, session.accountId, project.id)).catch(() => null),
+      ]);
 
-        let todos = [];
-        if (fullProject) {
-          const todoDock = fullProject.dock?.find(
-            (d) => d.name === "todoset" && d.enabled
-          );
-          if (todoDock) {
-            const todosetId =
-              todoDock.url?.match(/todosets\/(\d+)/)?.[1] || todoDock.id;
-            if (todosetId) {
-              const lists = await getTodoLists(
-                session.accessToken,
-                session.accountId,
-                project.id,
-                todosetId
-              ).catch(() => []);
+      let todos = [];
+      if (fullProject) {
+        const todoDock = fullProject.dock?.find(
+          (d) => d.name === "todoset" && d.enabled
+        );
+        if (todoDock) {
+          const todosetId =
+            todoDock.url?.match(/todosets\/(\d+)/)?.[1] || todoDock.id;
+          if (todosetId) {
+            const lists = await withRetry(() =>
+              getTodoLists(session.accessToken, session.accountId, project.id, todosetId)
+            ).catch(() => []);
 
-              todos = (
-                await Promise.all(
-                  lists.map((list) =>
-                    getTodos(
-                      session.accessToken,
-                      session.accountId,
-                      project.id,
-                      list.id
-                    ).catch(() => [])
-                  )
-                )
-              ).flat();
-            }
+            const todoTasks = lists.flatMap((list) => [
+              () => withRetry(() => getTodos(session.accessToken, session.accountId, project.id, list.id, false)).catch(() => []),
+              () => withRetry(() => getTodos(session.accessToken, session.accountId, project.id, list.id, true)).catch(() => []),
+            ]);
+            todos = (await runWithConcurrency(todoTasks, 3)).flat();
           }
         }
+      }
 
-        return { project, people, todos };
-      })
-    );
+      return { project, people, todos };
+    });
+
+    const projectData = await runWithConcurrency(projectTasks, 3);
 
     // Aggregate per user across all projects
     const userMap = new Map();
@@ -79,6 +101,7 @@ export async function GET() {
             completed: 0,
             incomplete: 0,
             projects: [],
+            todos: [],
           });
         }
         const user = userMap.get(person.id);
@@ -94,6 +117,13 @@ export async function GET() {
             user.total++;
             if (todo.completed) user.completed++;
             else user.incomplete++;
+            user.todos.push({
+              id: todo.id,
+              title: todo.title,
+              completed: todo.completed,
+              due_on: todo.due_on || null,
+              project: project.name,
+            });
           }
         }
       }
