@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getProjects, getProject, getTodoLists, getTodos } from "@/lib/basecamp";
-import { upsertTodoCache, getCachedTodoData } from "@/lib/db";
+import { getProjects, getProject, getVaultUploads } from "@/lib/basecamp";
+import { upsertFilesCache, getCachedFilesData } from "@/lib/db";
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -46,7 +46,7 @@ export async function GET() {
 
   try {
     // Serve from cache if fresh
-    const cached = await getCachedTodoData(accountId).catch(() => null);
+    const cached = await getCachedFilesData(accountId).catch(() => null);
     if (cached) {
       const age = Date.now() - new Date(cached.synced_at).getTime();
       if (age < CACHE_TTL_MS) {
@@ -62,68 +62,50 @@ export async function GET() {
         getProject(accessToken, accountId, project.id)
       ).catch(() => null);
 
-      if (!fullProject) return null;
+      if (!fullProject) return [];
 
-      const todoDock = fullProject.dock?.find(
-        (d) => d.name === "todoset" && d.enabled
+      const vaultDock = fullProject.dock?.find(
+        (d) => d.name === "vault" && d.enabled
       );
-      if (!todoDock) return null;
+      if (!vaultDock) return [];
 
-      const todosetId =
-        todoDock.url?.match(/todosets\/(\d+)/)?.[1] || todoDock.id;
-      if (!todosetId) return null;
+      const vaultId =
+        vaultDock.url?.match(/vaults\/(\d+)/)?.[1] || vaultDock.id;
+      if (!vaultId) return [];
 
-      const lists = await withRetry(() =>
-        getTodoLists(accessToken, accountId, project.id, todosetId)
+      const uploads = await withRetry(() =>
+        getVaultUploads(accessToken, accountId, project.id, vaultId)
       ).catch(() => []);
 
-      const listTasks = lists.map((list) => async () => {
-        const incomplete = await withRetry(() =>
-          getTodos(accessToken, accountId, project.id, list.id, false)
-        ).catch(() => []);
-        return {
-          id: list.id,
-          name: list.name,
-          description: list.description || "",
-          todos: incomplete.map((t) => ({
-            id: t.id,
-            title: t.title,
-            due_on: t.due_on || null,
-            app_url: t.app_url || null,
-            assignees: (t.assignees || []).map((a) => ({
-              id: a.id,
-              name: a.name,
-              avatar_url: a.avatar_url,
-            })),
-          })),
-        };
-      });
-
-      const todoLists = await runWithConcurrency(listTasks, 3);
-
-      return {
-        id: project.id,
-        name: project.name,
-        lists: todoLists,
-      };
+      return uploads.map((u) => ({
+        id: u.id,
+        filename: u.filename || u.title || "Untitled",
+        byte_size: u.byte_size || 0,
+        content_type: u.content_type || "unknown",
+        created_at: u.created_at,
+        app_url: u.app_url,
+        download_url: u.download_url || null,
+        project_name: project.name,
+        creator: u.creator?.name || "Unknown",
+      }));
     });
 
     const results = await runWithConcurrency(projectTasks, 3);
-    const data = results.filter(Boolean);
+    const data = results.flat();
 
-    await upsertTodoCache(accountId, data).catch((e) =>
-      console.error("Failed to cache todo data:", e.message)
+    await upsertFilesCache(accountId, data).catch((e) =>
+      console.error("Failed to cache files data:", e.message)
     );
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Failed to fetch todo lists:", error?.response?.data || error.message);
+    console.error("Failed to fetch files:", error?.response?.data || error.message);
     if (error?.response?.status === 401) {
       return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
-    // Fall back to stale cache rather than returning an error
-    const stale = await getCachedTodoData(accountId).catch(() => null);
+    // Fall back to stale cache
+    const stale = await getCachedFilesData(accountId).catch(() => null);
     if (stale) return NextResponse.json(stale.data);
-    return NextResponse.json({ error: "Failed to fetch todo lists" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch files" }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckSquare, Square, ChevronRight, ChevronDown, ChevronLeft, ListTodo, Search } from "lucide-react";
+import { Square, ChevronRight, ChevronDown, ChevronLeft, ListTodo, Search, ExternalLink } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -102,11 +102,6 @@ export default function TodoListPage() {
     (sum, p) => sum + p.lists.reduce((s, l) => s + l.todos.length, 0),
     0
   );
-  const totalOpen = projects.reduce(
-    (sum, p) =>
-      sum + p.lists.reduce((s, l) => s + l.todos.filter((t) => !t.completed).length, 0),
-    0
-  );
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -121,7 +116,7 @@ export default function TodoListPage() {
           </h1>
           {!loading && !error && (
             <p className="mt-1 text-sm text-gray-400">
-              {totalOpen} open · {totalTodos} total across {projects.length} projects
+              {totalTodos} open across {projects.length} projects
               {loadingMore && (
                 <span className="ml-2 text-gray-600">· loading…</span>
               )}
@@ -191,10 +186,6 @@ export default function TodoListPage() {
             )}
 
             {paginatedProjects.map((project) => {
-              const projectOpen = project.lists.reduce(
-                (s, l) => s + l.todos.filter((t) => !t.completed).length,
-                0
-              );
               const projectTotal = project.lists.reduce((s, l) => s + l.todos.length, 0);
               const isProjectOpen = expandedProjects[project.id];
 
@@ -216,23 +207,15 @@ export default function TodoListPage() {
                       )}
                       <span className="font-semibold text-gray-100">{project.name}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Square className="h-3.5 w-3.5 text-gray-500" />
-                        {projectOpen} open
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <CheckSquare className="h-3.5 w-3.5 text-green-600" />
-                        {projectTotal - projectOpen} done
-                      </span>
-                    </div>
+                    <span className="text-xs text-gray-400">
+                      {projectTotal} open
+                    </span>
                   </button>
 
                   {/* Todo lists */}
                   {isProjectOpen && (
                     <div className="border-t border-gray-700 divide-y divide-gray-700/50">
-                      {project.lists.map((list) => {
-                        const listOpen = list.todos.filter((t) => !t.completed).length;
+                      {project.lists.filter((list) => list.todos.length > 0).map((list) => {
                         const isListOpen = expandedLists[list.id] !== false; // expanded by default
 
                         return (
@@ -258,28 +241,17 @@ export default function TodoListPage() {
                                 )}
                               </div>
                               <span className="text-xs text-gray-500">
-                                {listOpen}/{list.todos.length}
+                                {list.todos.length}
                               </span>
                             </button>
 
                             {/* Todos */}
-                            {isListOpen && list.todos.length > 0 && (
+                            {isListOpen && (
                               <div className="px-5 pb-3 space-y-0.5">
-                                {/* Open todos first */}
-                                {list.todos.filter((t) => !t.completed).map((todo) => (
-                                  <TodoRow key={todo.id} todo={todo} />
-                                ))}
-                                {/* Completed todos */}
-                                {list.todos.filter((t) => t.completed).map((todo) => (
+                                {list.todos.map((todo) => (
                                   <TodoRow key={todo.id} todo={todo} />
                                 ))}
                               </div>
-                            )}
-
-                            {isListOpen && list.todos.length === 0 && (
-                              <p className="px-5 pb-3 text-xs text-gray-600 italic">
-                                No todos in this list.
-                              </p>
                             )}
                           </div>
                         );
@@ -334,21 +306,18 @@ export default function TodoListPage() {
 }
 
 function TodoRow({ todo }) {
-  return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      {todo.completed ? (
-        <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-      ) : (
-        <Square className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-      )}
+  const content = (
+    <>
+      <Square className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
       <div className="min-w-0 flex-1">
-        <p
-          className={`text-sm leading-snug ${
-            todo.completed ? "text-gray-500 line-through" : "text-gray-200"
-          }`}
-        >
-          {todo.title}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm leading-snug text-gray-200">
+            {todo.title}
+          </span>
+          {todo.app_url && (
+            <ExternalLink className="h-3 w-3 shrink-0 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2">
           {todo.due_on && (
             <span className="text-[11px] text-amber-500/80">due {todo.due_on}</span>
@@ -364,6 +333,25 @@ function TodoRow({ todo }) {
           )}
         </div>
       </div>
+    </>
+  );
+
+  if (todo.app_url) {
+    return (
+      <a
+        href={todo.app_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-start gap-2.5 py-1.5 group rounded-md -mx-1.5 px-1.5 hover:bg-gray-700/40 transition-colors"
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2.5 py-1.5">
+      {content}
     </div>
   );
 }

@@ -73,6 +73,14 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS files_cache (
+      account_id  BIGINT PRIMARY KEY,
+      data        JSONB NOT NULL,
+      synced_at   TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   initialized = true;
 }
 
@@ -207,5 +215,22 @@ export async function getCachedProjectData(accountId, projectId) {
 export async function invalidateProjectCache(accountId, projectId) {
   await initDb();
   await sql`DELETE FROM project_cache WHERE account_id = ${accountId} AND project_id = ${projectId}`;
+}
+
+export async function upsertFilesCache(accountId, data) {
+  await initDb();
+  await sql`
+    INSERT INTO files_cache (account_id, data, synced_at)
+    VALUES (${accountId}, ${JSON.stringify(data)}, NOW())
+    ON CONFLICT (account_id) DO UPDATE SET
+      data      = EXCLUDED.data,
+      synced_at = NOW()
+  `;
+}
+
+export async function getCachedFilesData(accountId) {
+  await initDb();
+  const rows = await sql`SELECT data, synced_at FROM files_cache WHERE account_id = ${accountId}`;
+  return rows[0] ?? null;
 }
 
