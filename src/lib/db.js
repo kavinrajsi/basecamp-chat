@@ -116,6 +116,14 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE leave ADD COLUMN IF NOT EXISTS recording_id BIGINT UNIQUE;
+      ALTER TABLE leave ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END $$
+  `;
+
   initialized = true;
 }
 

@@ -1,8 +1,5 @@
-import { insertWebhookEvent, deleteLeaveByRecordingId, updateLeaveContent, upsertLeave } from "@/lib/db";
-
-function stripHtml(html) {
-  return (html || "").replace(/<[^>]+>/g, "").trim();
-}
+import { insertWebhookEvent, deleteLeaveByRecordingId } from "@/lib/db";
+import { extractAndStoreLeave } from "@/lib/leave-ai";
 
 export async function POST(request) {
   try {
@@ -14,35 +11,16 @@ export async function POST(request) {
     // Handle leave table based on recording status
     if (recording?.id) {
       const status = recording.status;
-      const createdAt = recording.created_at;
-      const updatedAt = recording.updated_at;
 
       if (status === "trashed") {
-        // Delete the record from leave table
         await deleteLeaveByRecordingId(recording.id).catch((err) =>
           console.error("Failed to delete leave:", err.message)
         );
       } else if (status === "active") {
-        if (createdAt && updatedAt && createdAt !== updatedAt) {
-          // Created date differs from updated date — update the record
-          const rawContent = stripHtml(recording.content) || recording.title || recording.subject || "";
-          await updateLeaveContent(recording.id, rawContent).catch((err) =>
-            console.error("Failed to update leave:", err.message)
-          );
-        } else {
-          // New active record — store it
-          const rawContent = stripHtml(recording.content) || recording.title || recording.subject || "";
-          await upsertLeave(
-            recording.id,
-            creator?.name || null,
-            creator?.avatar_url || null,
-            creator?.email_address || null,
-            null,
-            rawContent,
-          ).catch((err) =>
-            console.error("Failed to upsert leave:", err.message)
-          );
-        }
+        // Extract leave/WFH dates via AI and store automatically
+        await extractAndStoreLeave(recording, creator).catch((err) =>
+          console.error("Failed to extract/store leave:", err.message)
+        );
       }
     }
 
