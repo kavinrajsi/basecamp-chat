@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { getWebhookEvents } from "@/lib/db";
 
 export async function GET() {
@@ -7,6 +7,10 @@ export async function GET() {
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdmin(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {

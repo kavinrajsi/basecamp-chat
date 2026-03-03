@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FolderOpen, Users, ListTodo, Briefcase, File, Sparkles, CalendarOff, Webhook } from "lucide-react";
@@ -11,20 +12,30 @@ const NAV_ITEMS = [
   { href: "/todo-work", label: "Work", icon: Briefcase },
   { href: "/files", label: "Files", icon: File },
   { href: "/leave", label: "Leave", icon: CalendarOff },
-  { href: "/webhooks", label: "Hooks", icon: Webhook },
+  { href: "/webhooks", label: "Hooks", icon: Webhook, adminOnly: true },
   { href: "/ai", label: "AI", icon: Sparkles },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data?.isAdmin) setAdmin(true); })
+      .catch(() => {});
+  }, []);
 
   // Hide on project detail pages (mobile has its own layout)
   if (pathname.startsWith("/projects/")) return null;
 
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || admin);
+
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-gray-700/80 bg-gray-900/95 backdrop-blur-md">
       <div className="flex items-center justify-around px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {visibleItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href;
           const isAI = href === "/ai";
           return (

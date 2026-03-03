@@ -253,6 +253,11 @@ export default function WebhooksPage() {
         window.location.href = "/";
         return;
       }
+      if (res.status === 403) {
+        setError("Access denied. This page is restricted to administrators.");
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load events");
       const data = await res.json();
       setEvents(data);

@@ -61,6 +61,12 @@ export async function getSession() {
   }
 }
 
+export function isAdmin(session) {
+  const emails = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const userEmail = session?.identity?.email_address?.toLowerCase();
+  return !!userEmail && emails.includes(userEmail);
+}
+
 export async function clearSession() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);

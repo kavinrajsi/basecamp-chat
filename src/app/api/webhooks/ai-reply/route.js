@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { extractAndStoreLeave } from "@/lib/leave-ai";
 
 export async function POST(request) {
   const session = await getSession();
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdmin(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body;
