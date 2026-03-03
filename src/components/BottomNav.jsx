@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Users, ListTodo, File, Sparkles, CalendarOff } from "lucide-react";
+import { FolderOpen, Users, ListTodo, Briefcase, File, Sparkles, CalendarOff } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Projects", icon: FolderOpen },
   { href: "/users", label: "Users", icon: Users },
   { href: "/todo-list", label: "Todos", icon: ListTodo },
+  { href: "/todo-work", label: "Work", icon: Briefcase },
   { href: "/files", label: "Files", icon: File },
   { href: "/leave", label: "Leave", icon: CalendarOff },
   { href: "/ai", label: "AI", icon: Sparkles },

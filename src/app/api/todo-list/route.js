@@ -89,6 +89,7 @@ export async function GET() {
             id: t.id,
             title: t.title,
             due_on: t.due_on || null,
+            created_at: t.created_at || null,
             app_url: t.app_url || null,
             assignees: (t.assignees || []).map((a) => ({
               id: a.id,
