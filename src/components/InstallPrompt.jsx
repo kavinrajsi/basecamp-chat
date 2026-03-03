@@ -22,6 +22,7 @@ export default function InstallPrompt() {
       /safari/i.test(navigator.userAgent) && !/chrome|crios|fxios/i.test(navigator.userAgent);
 
     if (isIOSDevice && isSafari) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time browser detection on mount
       setIsIOS(true);
       setShow(true);
       return;

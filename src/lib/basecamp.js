@@ -133,6 +133,17 @@ export async function trashRecording(accessToken, accountId, projectId, recordin
   });
 }
 
+export async function completeTodo(accessToken, accountId, projectId, todoId) {
+  const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todos/${todoId}/completion.json`;
+  const response = await axios.post(url, {}, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.data;
+}
+
 export async function getTodoLists(accessToken, accountId, projectId, todosetId) {
   const url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/todosets/${todosetId}/todolists.json`;
   const response = await axios.get(url, {
@@ -213,6 +224,57 @@ export async function getAllPeople(accessToken, accountId) {
 
 export async function getVaultUploads(accessToken, accountId, projectId, vaultId) {
   let url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/vaults/${vaultId}/uploads.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
+}
+
+export async function getVaultDocuments(accessToken, accountId, projectId, vaultId) {
+  let url = `https://3.basecampapi.com/${accountId}/vaults/${vaultId}/documents.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
+}
+
+export async function getVaultFolders(accessToken, accountId, projectId, vaultId) {
+  let url = `https://3.basecampapi.com/${accountId}/vaults/${vaultId}/vaults.json`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  let all = [];
+  while (url) {
+    const response = await axios.get(url, { headers });
+    all = all.concat(response.data);
+    const link = response.headers?.link;
+    const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return all;
+}
+
+export async function getMessageBoardMessages(accessToken, accountId, projectId, messageBoardId) {
+  let url = `https://3.basecampapi.com/${accountId}/buckets/${projectId}/message_boards/${messageBoardId}/messages.json`;
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",

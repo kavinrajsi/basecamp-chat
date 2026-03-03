@@ -36,9 +36,10 @@ export function decrypt(encryptedText) {
   }
 }
 
-export function setSessionCookie(tokenData) {
+export async function setSessionCookie(tokenData) {
   const encrypted = encrypt(JSON.stringify(tokenData));
-  cookies().set(SESSION_COOKIE, encrypted, {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, encrypted, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -47,8 +48,9 @@ export function setSessionCookie(tokenData) {
   });
 }
 
-export function getSession() {
-  const cookie = cookies().get(SESSION_COOKIE);
+export async function getSession() {
+  const cookieStore = await cookies();
+  const cookie = cookieStore.get(SESSION_COOKIE);
   if (!cookie?.value) return null;
   const decrypted = decrypt(cookie.value);
   if (!decrypted) return null;
@@ -59,6 +61,7 @@ export function getSession() {
   }
 }
 
-export function clearSession() {
-  cookies().delete(SESSION_COOKIE);
+export async function clearSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
 }

@@ -39,7 +39,7 @@ function rowsToAnswers(rows) {
 }
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -31,15 +31,15 @@ async function withRetry(fn, retries = 3) {
   }
 }
 
-export async function GET(request, { params }) {
-  const session = getSession();
+export async function GET(request, props) {
+  const { id: projectId } = await props.params;
+  const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { accessToken, accountId } = session;
-  const projectId = params.id;
 
   try {
     // Serve from cache if fresh
@@ -126,8 +126,9 @@ export async function GET(request, { params }) {
   }
 }
 
-export async function POST(request, { params }) {
-  const session = getSession();
+export async function POST(request, props) {
+  const { id: projectId } = await props.params;
+  const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -146,13 +147,13 @@ export async function POST(request, { params }) {
     const line = await createCampfireLine(
       session.accessToken,
       session.accountId,
-      params.id,
+      projectId,
       chatId,
       content
     );
 
     // Invalidate cache so next GET fetches fresh messages
-    await invalidateProjectCache(session.accountId, params.id).catch(() => {});
+    await invalidateProjectCache(session.accountId, projectId).catch(() => {});
 
     return NextResponse.json(line);
   } catch (error) {
@@ -164,8 +165,9 @@ export async function POST(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
-  const session = getSession();
+export async function DELETE(request, props) {
+  const { id: projectId } = await props.params;
+  const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -178,10 +180,10 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "recordingId is required" }, { status: 400 });
     }
 
-    await trashRecording(session.accessToken, session.accountId, params.id, recordingId);
+    await trashRecording(session.accessToken, session.accountId, projectId, recordingId);
 
     // Invalidate cache so deleted message doesn't show on next load
-    await invalidateProjectCache(session.accountId, params.id).catch(() => {});
+    await invalidateProjectCache(session.accountId, projectId).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {

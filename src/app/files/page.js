@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { File, ChevronDown, ChevronRight, Search, ExternalLink, Download } from "lucide-react";
+import { File, ChevronDown, ChevronRight, Search, ExternalLink, Download, Upload, FileText, Folder, Paperclip } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -14,7 +14,16 @@ const SIZE_CATEGORIES = [
   { label: "Tiny", min: 0, max: 100 * 1024 },
 ];
 
+const TABS = [
+  { key: "all", label: "All" },
+  { key: "upload", label: "Uploads", icon: Upload },
+  { key: "document", label: "Documents", icon: FileText },
+  { key: "vault", label: "Folders", icon: Folder },
+  { key: "attachment", label: "Attachments", icon: Paperclip },
+];
+
 function formatSize(bytes) {
+  if (bytes == null || bytes === 0) return null;
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -30,12 +39,112 @@ function formatDate(dateStr) {
   });
 }
 
+function sizeRangeLabel(label) {
+  switch (label) {
+    case "Huge": return "> 100 MB";
+    case "Large": return "10\u2013100 MB";
+    case "Medium": return "1\u201310 MB";
+    case "Small": return "100 KB\u20131 MB";
+    case "Tiny": return "< 100 KB";
+    default: return "";
+  }
+}
+
+function groupBySize(files) {
+  return SIZE_CATEGORIES.map((cat) => ({
+    label: cat.label,
+    sublabel: sizeRangeLabel(cat.label),
+    files: files.filter((f) => (f.byte_size || 0) >= cat.min && (f.byte_size || 0) < cat.max),
+  })).filter((g) => g.files.length > 0);
+}
+
+function groupByProject(files) {
+  const map = {};
+  for (const f of files) {
+    const key = f.project_name || "Unknown";
+    if (!map[key]) map[key] = [];
+    map[key].push(f);
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, items]) => ({
+      label: name,
+      sublabel: null,
+      files: items,
+    }));
+}
+
+function FileRow({ file }) {
+  const displayName = file.title || file.filename || "Untitled";
+
+  const iconMap = {
+    upload: <File className="h-3.5 w-3.5 shrink-0 text-gray-500" />,
+    document: <FileText className="h-3.5 w-3.5 shrink-0 text-blue-400" />,
+    vault: <Folder className="h-3.5 w-3.5 shrink-0 text-yellow-400" />,
+    attachment: <Paperclip className="h-3.5 w-3.5 shrink-0 text-purple-400" />,
+  };
+
+  const icon = iconMap[file.type] || iconMap.upload;
+
+  const meta = [];
+  if (file.type === "vault") {
+    const parts = [];
+    if (file.documents_count) parts.push(`${file.documents_count} doc${file.documents_count !== 1 ? "s" : ""}`);
+    if (file.uploads_count) parts.push(`${file.uploads_count} upload${file.uploads_count !== 1 ? "s" : ""}`);
+    if (file.vaults_count) parts.push(`${file.vaults_count} folder${file.vaults_count !== 1 ? "s" : ""}`);
+    if (parts.length > 0) meta.push(parts.join(", "));
+  } else {
+    const size = formatSize(file.byte_size);
+    if (size) meta.push(size);
+    if (file.content_type && file.type === "upload") meta.push(file.content_type);
+  }
+  meta.push(file.project_name);
+  meta.push(file.creator);
+  if (file.created_at) meta.push(formatDate(file.created_at));
+
+  const showDownload = file.download_url && file.type !== "document" && file.type !== "vault";
+
+  return (
+    <div className="flex items-center justify-between px-5 py-3 hover:bg-gray-700/40 transition-colors group">
+      <a
+        href={file.app_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="min-w-0 flex-1"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-sm text-gray-200 truncate">{displayName}</span>
+          <ExternalLink className="h-3 w-3 shrink-0 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-5.5 text-[11px] text-gray-500">
+          {meta.map((m, i) => (
+            <span key={i}>{m}</span>
+          ))}
+        </div>
+      </a>
+      {showDownload && (
+        <a
+          href={file.download_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-3 shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-600/50 hover:text-gray-300 transition-colors"
+          title="Download file"
+        >
+          <Download className="h-4 w-4" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function FilesPage() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
+  const [activeTab, setActiveTab] = useState("all");
 
   useEffect(() => {
     fetch("/api/files")
@@ -58,22 +167,59 @@ export default function FilesPage() {
   const toggleGroup = (label) =>
     setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
 
+  // Counts per type
+  const counts = { upload: 0, document: 0, vault: 0, attachment: 0 };
+  for (const f of files) {
+    if (counts[f.type] !== undefined) counts[f.type]++;
+  }
+
   const q = search.toLowerCase();
-  const filtered = files.filter(
-    (f) =>
-      !q ||
-      f.filename.toLowerCase().includes(q) ||
-      f.project_name.toLowerCase().includes(q) ||
-      f.creator.toLowerCase().includes(q) ||
-      f.content_type.toLowerCase().includes(q)
-  );
+  const filtered = files.filter((f) => {
+    // Tab filter
+    if (activeTab !== "all" && f.type !== activeTab) return false;
+    // Search filter
+    if (!q) return true;
+    const title = (f.title || f.filename || "").toLowerCase();
+    const project = (f.project_name || "").toLowerCase();
+    const creator = (f.creator || "").toLowerCase();
+    const contentType = (f.content_type || "").toLowerCase();
+    return title.includes(q) || project.includes(q) || creator.includes(q) || contentType.includes(q);
+  });
 
-  const groups = SIZE_CATEGORIES.map((cat) => ({
-    ...cat,
-    files: filtered.filter((f) => f.byte_size >= cat.min && f.byte_size < cat.max),
-  })).filter((g) => g.files.length > 0);
+  // Build groups based on active tab
+  let sections;
+  if (activeTab === "upload") {
+    sections = [{ type: "upload", title: null, groups: groupBySize(filtered) }];
+  } else if (activeTab === "document" || activeTab === "vault" || activeTab === "attachment") {
+    sections = [{ type: activeTab, title: null, groups: groupByProject(filtered) }];
+  } else {
+    // "all" tab: show each type as a section with its own grouping
+    const typeOrder = ["upload", "document", "vault", "attachment"];
+    const typeLabels = { upload: "Uploads", document: "Documents", vault: "Folders", attachment: "Attachments" };
+    sections = typeOrder
+      .map((type) => {
+        const typeFiles = filtered.filter((f) => f.type === type);
+        if (typeFiles.length === 0) return null;
+        return {
+          type,
+          title: typeLabels[type],
+          groups: type === "upload" ? groupBySize(typeFiles) : groupByProject(typeFiles),
+        };
+      })
+      .filter(Boolean);
+  }
 
-  const totalSize = files.reduce((sum, f) => sum + f.byte_size, 0);
+  const totalSize = files.reduce((sum, f) => sum + (f.byte_size || 0), 0);
+
+  // Build summary line
+  const summaryParts = [];
+  if (counts.upload) summaryParts.push(`${counts.upload} upload${counts.upload !== 1 ? "s" : ""}`);
+  if (counts.document) summaryParts.push(`${counts.document} document${counts.document !== 1 ? "s" : ""}`);
+  if (counts.vault) summaryParts.push(`${counts.vault} folder${counts.vault !== 1 ? "s" : ""}`);
+  if (counts.attachment) summaryParts.push(`${counts.attachment} attachment${counts.attachment !== 1 ? "s" : ""}`);
+  const summaryText = summaryParts.length > 0
+    ? `${summaryParts.join(", ")}${totalSize > 0 ? ` \u00b7 ${formatSize(totalSize)} total` : ""}`
+    : `${files.length} files`;
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -87,23 +233,49 @@ export default function FilesPage() {
             Files
           </h1>
           {!loading && !error && (
-            <p className="mt-1 text-sm text-gray-400">
-              {files.length} files · {formatSize(totalSize)} total
-            </p>
+            <p className="mt-1 text-sm text-gray-400">{summaryText}</p>
           )}
         </div>
 
         {/* Search */}
         {!loading && !error && (
-          <div className="relative mb-6">
+          <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by filename, project, uploader, or type..."
+              placeholder="Search by name, project, creator, or type..."
               className="w-full rounded-lg border border-gray-700 bg-gray-800 py-2.5 pl-9 pr-4 text-sm text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+          </div>
+        )}
+
+        {/* Tabs */}
+        {!loading && !error && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              const count = tab.key === "all" ? files.length : counts[tab.key] || 0;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/40"
+                      : "bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-750 hover:text-gray-300"
+                  }`}
+                >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {tab.label}
+                  <span className={`text-xs ${isActive ? "text-blue-400/70" : "text-gray-500"}`}>
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -134,95 +306,64 @@ export default function FilesPage() {
 
         {error && <ErrorMessage message={error} />}
 
-        {/* File groups */}
+        {/* File sections & groups */}
         {!loading && !error && (
-          <div className="space-y-4">
-            {groups.length === 0 && (
+          <div className="space-y-6">
+            {sections.length === 0 && filtered.length === 0 && (
               <p className="py-12 text-center text-sm text-gray-400">No files found.</p>
             )}
 
-            {groups.map((group) => {
-              const isCollapsed = collapsed[group.label];
-              const groupSize = group.files.reduce((s, f) => s + f.byte_size, 0);
+            {sections.map((section, si) => (
+              <div key={si} className="space-y-4">
+                {section.title && (
+                  <h2 className="text-lg font-semibold text-gray-200">{section.title}</h2>
+                )}
 
-              return (
-                <div
-                  key={group.label}
-                  className="rounded-xl border border-gray-700 bg-gray-800 overflow-hidden"
-                >
-                  {/* Group header */}
-                  <button
-                    onClick={() => toggleGroup(group.label)}
-                    className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-750 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      )}
-                      <span className="font-semibold text-gray-100">{group.label}</span>
-                      <span className="text-xs text-gray-500">
-                        ({group.label === "Huge" ? "> 100 MB" :
-                          group.label === "Large" ? "10–100 MB" :
-                          group.label === "Medium" ? "1–10 MB" :
-                          group.label === "Small" ? "100 KB–1 MB" :
-                          "< 100 KB"})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <span>{group.files.length} files</span>
-                      <span>{formatSize(groupSize)}</span>
-                    </div>
-                  </button>
+                {section.groups.map((group) => {
+                  const groupKey = `${section.type || "all"}-${group.label}`;
+                  const isCollapsed = collapsed[groupKey];
+                  const groupSize = group.files.reduce((s, f) => s + (f.byte_size || 0), 0);
 
-                  {/* File rows */}
-                  {!isCollapsed && (
-                    <div className="border-t border-gray-700 divide-y divide-gray-700/50">
-                      {group.files.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center justify-between px-5 py-3 hover:bg-gray-700/40 transition-colors group"
-                        >
-                          <a
-                            href={file.app_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-w-0 flex-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <File className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-                              <span className="text-sm text-gray-200 truncate">
-                                {file.filename}
-                              </span>
-                              <ExternalLink className="h-3 w-3 shrink-0 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-5.5 text-[11px] text-gray-500">
-                              <span>{formatSize(file.byte_size)}</span>
-                              <span>{file.content_type}</span>
-                              <span>{file.project_name}</span>
-                              <span>{file.creator}</span>
-                              {file.created_at && <span>{formatDate(file.created_at)}</span>}
-                            </div>
-                          </a>
-                          {file.download_url && (
-                            <a
-                              href={file.download_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="ml-3 shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-600/50 hover:text-gray-300 transition-colors"
-                              title="Download file"
-                            >
-                              <Download className="h-4 w-4" />
-                            </a>
+                  return (
+                    <div
+                      key={groupKey}
+                      className="rounded-xl border border-gray-700 bg-gray-800 overflow-hidden"
+                    >
+                      {/* Group header */}
+                      <button
+                        onClick={() => toggleGroup(groupKey)}
+                        className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-750 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isCollapsed ? (
+                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          )}
+                          <span className="font-semibold text-gray-100">{group.label}</span>
+                          {group.sublabel && (
+                            <span className="text-xs text-gray-500">({group.sublabel})</span>
                           )}
                         </div>
-                      ))}
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                          <span>{group.files.length} {group.files.length === 1 ? "item" : "items"}</span>
+                          {groupSize > 0 && <span>{formatSize(groupSize)}</span>}
+                        </div>
+                      </button>
+
+                      {/* File rows */}
+                      {!isCollapsed && (
+                        <div className="border-t border-gray-700 divide-y divide-gray-700/50">
+                          {group.files.map((file) => (
+                            <FileRow key={file.id} file={file} />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            ))}
           </div>
         )}
       </main>

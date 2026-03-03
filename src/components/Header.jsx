@@ -6,11 +6,10 @@ import { LogOut, Wifi, WifiOff } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState(null);
-  const [offlineMode, setOfflineMode] = useState(false);
-
-  useEffect(() => {
-    setOfflineMode(localStorage.getItem("offlineMode") === "true");
-  }, []);
+  const [offlineMode, setOfflineMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("offlineMode") === "true";
+  });
 
   useEffect(() => {
     fetch("/api/auth/me")

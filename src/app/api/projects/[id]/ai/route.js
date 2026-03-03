@@ -8,8 +8,8 @@ function stripHtml(html) {
   return (html || "").replace(/<[^>]+>/g, "").trim();
 }
 
-export async function POST(request, { params }) {
-  const session = getSession();
+export async function POST(request) {
+  const session = await getSession();
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

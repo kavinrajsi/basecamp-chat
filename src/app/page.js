@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import LoginScreen from "@/components/LoginScreen";
 
-export default function Home() {
-  const session = getSession();
+export default async function Home() {
+  const session = await getSession();
 
   if (session?.accessToken) {
     redirect("/dashboard");

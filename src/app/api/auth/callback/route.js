@@ -32,7 +32,7 @@ export async function GET(request) {
       identity: authData.identity,
     };
 
-    setSessionCookie(session);
+    await setSessionCookie(session);
     return NextResponse.redirect(new URL("/dashboard", origin));
   } catch (error) {
     console.error("[callback] auth failed:", error?.response?.status, error.message);

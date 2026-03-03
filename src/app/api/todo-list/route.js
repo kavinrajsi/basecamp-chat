@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getProjects, getProject, getTodoLists, getTodos } from "@/lib/basecamp";
+import { getProjects, getProject, getTodoLists, getTodos, completeTodo } from "@/lib/basecamp";
 import { upsertTodoCache, getCachedTodoData } from "@/lib/db";
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -36,7 +36,7 @@ async function runWithConcurrency(tasks, limit) {
 }
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -126,5 +126,32 @@ export async function GET() {
     const stale = await getCachedTodoData(accountId).catch(() => null);
     if (stale) return NextResponse.json(stale.data);
     return NextResponse.json({ error: "Failed to fetch todo lists" }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  const session = await getSession();
+
+  if (!session?.accessToken || !session?.accountId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { accessToken, accountId } = session;
+
+  try {
+    const { projectId, todoId } = await request.json();
+
+    if (!projectId || !todoId) {
+      return NextResponse.json({ error: "projectId and todoId are required" }, { status: 400 });
+    }
+
+    await completeTodo(accessToken, accountId, projectId, todoId);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Failed to complete todo:", error?.response?.data || error.message);
+    if (error?.response?.status === 401) {
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Failed to complete todo" }, { status: 500 });
   }
 }

@@ -164,7 +164,7 @@ ${sections.join("\n\n---\n\n")}`;
 }
 
 export async function POST(request) {
-  const session = getSession();
+  const session = await getSession();
   if (!session?.accessToken || !session?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Briefcase, Square, ChevronDown, ChevronRight, Search, ExternalLink } from "lucide-react";
+import { Briefcase, Square, CheckSquare, ChevronDown, ChevronRight, Search, ExternalLink, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -34,6 +34,7 @@ export default function TodoWorkPage() {
             for (const todo of list.todos) {
               flat.push({
                 ...todo,
+                project_id: project.id,
                 project_name: project.name,
                 list_name: list.name,
               });
@@ -165,7 +166,11 @@ export default function TodoWorkPage() {
                   {!isCollapsed && (
                     <div className="border-t border-gray-700 px-5 pb-3 space-y-0.5">
                       {yearTodos.map((todo) => (
-                        <TodoRow key={todo.id} todo={todo} />
+                        <TodoRow
+                          key={todo.id}
+                          todo={todo}
+                          onComplete={(id) => setTodos((prev) => prev.filter((t) => t.id !== id))}
+                        />
                       ))}
                     </div>
                   )}
@@ -179,54 +184,93 @@ export default function TodoWorkPage() {
   );
 }
 
-function TodoRow({ todo }) {
-  const content = (
-    <>
-      <Square className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm leading-snug text-gray-200">
-            {todo.title}
-          </span>
-          {todo.app_url && (
-            <ExternalLink className="h-3 w-3 shrink-0 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
-        </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2">
-          {todo.due_on && (
-            <span className="text-[11px] text-amber-500/80">due {todo.due_on}</span>
-          )}
-          {todo.assignees.length > 0 && (
-            <div className="flex items-center gap-1">
-              {todo.assignees.map((a) => (
-                <span key={a.id} className="text-[11px] text-gray-500">
-                  {a.name}
-                </span>
-              ))}
-            </div>
-          )}
-          <span className="text-[11px] text-gray-600">{todo.project_name}</span>
-        </div>
+function TodoRow({ todo, onComplete }) {
+  const [completing, setCompleting] = useState(false);
+  const [completed, setCompleted] = useState(false);
+
+  const handleComplete = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCompleting(true);
+    try {
+      const res = await fetch("/api/todo-list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: todo.project_id, todoId: todo.id }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setCompleted(true);
+      setTimeout(() => onComplete(todo.id), 400);
+    } catch {
+      setCompleting(false);
+    }
+  };
+
+  const checkbox = (
+    <button
+      onClick={handleComplete}
+      disabled={completing || completed}
+      className="mt-0.5 shrink-0 text-gray-500 hover:text-green-400 transition-colors disabled:pointer-events-none"
+      title="Mark as complete"
+    >
+      {completing ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : completed ? (
+        <CheckSquare className="h-4 w-4 text-green-400" />
+      ) : (
+        <Square className="h-4 w-4" />
+      )}
+    </button>
+  );
+
+  const info = (
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-1.5">
+        <span className={`text-sm leading-snug ${completed ? "line-through text-gray-500" : "text-gray-200"}`}>
+          {todo.title}
+        </span>
+        {todo.app_url && (
+          <ExternalLink className="h-3 w-3 shrink-0 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
       </div>
-    </>
+      <div className="mt-0.5 flex flex-wrap items-center gap-2">
+        {todo.due_on && (
+          <span className="text-[11px] text-amber-500/80">due {todo.due_on}</span>
+        )}
+        {todo.assignees.length > 0 && (
+          <div className="flex items-center gap-1">
+            {todo.assignees.map((a) => (
+              <span key={a.id} className="text-[11px] text-gray-500">
+                {a.name}
+              </span>
+            ))}
+          </div>
+        )}
+        <span className="text-[11px] text-gray-600">{todo.project_name}</span>
+      </div>
+    </div>
   );
 
   if (todo.app_url) {
     return (
-      <a
-        href={todo.app_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-start gap-2.5 py-1.5 group rounded-md -mx-1.5 px-1.5 hover:bg-gray-700/40 transition-colors"
-      >
-        {content}
-      </a>
+      <div className="flex items-start gap-2.5 py-1.5 group rounded-md -mx-1.5 px-1.5 hover:bg-gray-700/40 transition-colors">
+        {checkbox}
+        <a
+          href={todo.app_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 flex-1"
+        >
+          {info}
+        </a>
+      </div>
     );
   }
 
   return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      {content}
+    <div className="flex items-start gap-2.5 py-1.5 group rounded-md -mx-1.5 px-1.5 hover:bg-gray-700/40 transition-colors">
+      {checkbox}
+      {info}
     </div>
   );
 }
