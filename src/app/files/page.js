@@ -7,7 +7,8 @@ import BottomNav from "@/components/BottomNav";
 import ErrorMessage from "@/components/ErrorMessage";
 
 const SIZE_CATEGORIES = [
-  { label: "Huge", min: 100 * 1024 * 1024, max: Infinity },
+  { label: "Massive", min: 1 * 1024 * 1024 * 1024, max: 10 * 1024 * 1024 * 1024 },
+  { label: "Huge", min: 100 * 1024 * 1024, max: 1 * 1024 * 1024 * 1024 },
   { label: "Large", min: 10 * 1024 * 1024, max: 100 * 1024 * 1024 },
   { label: "Medium", min: 1 * 1024 * 1024, max: 10 * 1024 * 1024 },
   { label: "Small", min: 100 * 1024, max: 1 * 1024 * 1024 },
@@ -41,7 +42,8 @@ function formatDate(dateStr) {
 
 function sizeRangeLabel(label) {
   switch (label) {
-    case "Huge": return "> 100 MB";
+    case "Massive": return "1\u201310 GB";
+    case "Huge": return "100 MB\u20131 GB";
     case "Large": return "10\u2013100 MB";
     case "Medium": return "1\u201310 MB";
     case "Small": return "100 KB\u20131 MB";

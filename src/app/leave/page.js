@@ -64,24 +64,36 @@ function AnswerCard({ answer }) {
             <User size={16} className="text-gray-400" />
           </div>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-white truncate">{answer.creator?.name}</p>
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <CalendarDays size={11} />
-            <span>{formatDate(answer.created_at)}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <CalendarDays size={11} />
+              {formatDate(answer.created_at)}
+            </span>
+            {answer.creator?.email && (
+              <span>{answer.creator.email}</span>
+            )}
           </div>
         </div>
       </div>
-      <div
-        className="text-sm text-gray-300 leading-relaxed prose prose-sm prose-invert max-w-none break-words overflow-hidden [&_a]:text-blue-400 [&_a]:underline [&_a]:break-all [&_img]:max-w-full [&_img]:rounded-md [&_figure]:my-1 [&_figcaption]:text-xs [&_figcaption]:text-gray-400 [&_bc-attachment]:inline-flex [&_bc-attachment]:items-center [&_bc-attachment]:gap-1 [&_bc-attachment]:align-middle [&_bc-attachment]:mr-1.5 [&_bc-attachment_figure]:m-0 [&_bc-attachment_figure]:p-0 [&_bc-attachment_figure]:inline-flex [&_bc-attachment_figure]:items-center [&_bc-attachment_figure]:gap-1 [&_bc-attachment_img]:h-5 [&_bc-attachment_img]:w-5 [&_bc-attachment_img]:rounded-full [&_bc-attachment_img]:object-cover [&_bc-attachment_img]:max-h-5 [&_bc-attachment_figcaption]:inline [&_bc-attachment_figcaption]:text-xs [&_bc-attachment_figcaption]:text-blue-400 [&_bc-attachment_figcaption]:font-medium"
-        dangerouslySetInnerHTML={{ __html: answer.content }}
-      />
+      <p className="text-sm text-gray-300 leading-relaxed break-words whitespace-pre-wrap">
+        {answer.content}
+      </p>
+      {answer.ai_response && (
+        <div className="mt-3 rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2">
+          <p className="text-[11px] font-medium text-purple-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <Sparkles size={11} />
+            AI Extract
+          </p>
+          <p className="text-sm font-mono text-gray-200 whitespace-pre-wrap">{answer.ai_response}</p>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function LeavePage() {
-  const [question, setQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -98,8 +110,7 @@ export default function LeavePage() {
       })
       .then((data) => {
         if (!data) return;
-        setQuestion(data.question);
-        setAnswers(data.answers);
+        setAnswers(data.answers || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -109,7 +120,9 @@ export default function LeavePage() {
   const filtered = answers.filter((a) =>
     !q ||
     a.creator?.name?.toLowerCase().includes(q) ||
-    stripHtml(a.content).toLowerCase().includes(q)
+    a.creator?.email?.toLowerCase().includes(q) ||
+    (a.content || "").toLowerCase().includes(q) ||
+    (a.ai_response || "").toLowerCase().includes(q)
   );
 
   // Build a date -> answers map for the calendar

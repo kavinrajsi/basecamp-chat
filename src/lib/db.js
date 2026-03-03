@@ -41,10 +41,20 @@ export async function initDb() {
       creator_name    TEXT,
       creator_avatar  TEXT,
       content         TEXT,
+      leave_dates     TEXT,
+      wfh_dates       TEXT,
       created_at      TIMESTAMPTZ,
       updated_at      TIMESTAMPTZ,
       synced_at       TIMESTAMPTZ DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE leave_answers ADD COLUMN IF NOT EXISTS leave_dates TEXT;
+      ALTER TABLE leave_answers ADD COLUMN IF NOT EXISTS wfh_dates TEXT;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END $$
   `;
 
   await sql`
@@ -78,6 +88,31 @@ export async function initDb() {
       account_id  BIGINT PRIMARY KEY,
       data        JSONB NOT NULL,
       synced_at   TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      id          SERIAL PRIMARY KEY,
+      kind        TEXT NOT NULL,
+      recording   JSONB,
+      creator     JSONB,
+      payload     JSONB NOT NULL,
+      received_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS leave (
+      id              SERIAL PRIMARY KEY,
+      recording_id    BIGINT UNIQUE,
+      creator_name    TEXT,
+      creator_avatar  TEXT,
+      creator_email   TEXT,
+      ai_response     TEXT,
+      raw_content     TEXT,
+      created_at      TIMESTAMPTZ DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ DEFAULT NOW()
     )
   `;
 
@@ -140,6 +175,15 @@ export async function upsertLeaveAnswers(answers, accountId, questionId) {
       )
     );
   }
+}
+
+export async function updateLeaveAnswerDates(id, leaveDates, wfhDates) {
+  await initDb();
+  await sql`
+    UPDATE leave_answers
+    SET leave_dates = ${leaveDates}, wfh_dates = ${wfhDates}
+    WHERE id = ${id}
+  `;
 }
 
 export async function getCachedLeaveAnswers(accountId, questionId) {
@@ -232,5 +276,58 @@ export async function getCachedFilesData(accountId) {
   await initDb();
   const rows = await sql`SELECT data, synced_at FROM files_cache WHERE account_id = ${accountId}`;
   return rows[0] ?? null;
+}
+
+export async function insertWebhookEvent(kind, recording, creator, payload) {
+  await initDb();
+  await sql`
+    INSERT INTO webhook_events (kind, recording, creator, payload)
+    VALUES (${kind}, ${JSON.stringify(recording)}, ${JSON.stringify(creator)}, ${JSON.stringify(payload)})
+  `;
+}
+
+export async function getWebhookEvents(limit = 200) {
+  await initDb();
+  return sql`SELECT * FROM webhook_events ORDER BY received_at DESC LIMIT ${limit}`;
+}
+
+export async function upsertLeave(recordingId, creatorName, creatorAvatar, creatorEmail, aiResponse, rawContent) {
+  await initDb();
+  await sql`
+    INSERT INTO leave (recording_id, creator_name, creator_avatar, creator_email, ai_response, raw_content)
+    VALUES (${recordingId}, ${creatorName}, ${creatorAvatar}, ${creatorEmail}, ${aiResponse}, ${rawContent})
+    ON CONFLICT (recording_id) DO UPDATE SET
+      creator_name   = EXCLUDED.creator_name,
+      creator_avatar = EXCLUDED.creator_avatar,
+      creator_email  = EXCLUDED.creator_email,
+      ai_response    = EXCLUDED.ai_response,
+      raw_content    = EXCLUDED.raw_content,
+      updated_at     = NOW()
+  `;
+}
+
+export async function deleteLeaveByRecordingId(recordingId) {
+  await initDb();
+  await sql`DELETE FROM leave WHERE recording_id = ${recordingId}`;
+}
+
+export async function updateLeaveContent(recordingId, rawContent) {
+  await initDb();
+  await sql`
+    UPDATE leave
+    SET raw_content = ${rawContent}, ai_response = NULL, updated_at = NOW()
+    WHERE recording_id = ${recordingId}
+  `;
+}
+
+export async function getLeaveByRecordingId(recordingId) {
+  await initDb();
+  const rows = await sql`SELECT * FROM leave WHERE recording_id = ${recordingId}`;
+  return rows[0] ?? null;
+}
+
+export async function getLeaveEntries(limit = 200) {
+  await initDb();
+  return sql`SELECT * FROM leave ORDER BY created_at DESC LIMIT ${limit}`;
 }
 
