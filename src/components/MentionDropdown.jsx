@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 export default function MentionDropdown({ people, filter, onSelect, selectedIndex }) {
   const filtered = people.filter((p) =>
     p.name?.toLowerCase().startsWith(filter.toLowerCase())
@@ -24,9 +26,11 @@ export default function MentionDropdown({ people, filter, onSelect, selectedInde
           }`}
         >
           {person.avatar_url ? (
-            <img
+            <Image
               src={person.avatar_url}
               alt={person.name}
+              width={24}
+              height={24}
               className="h-6 w-6 shrink-0 rounded-full object-cover"
             />
           ) : (

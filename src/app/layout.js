@@ -1,16 +1,9 @@
 import "./globals.css";
-import SWRegister from "@/components/SWRegister";
-import InstallPrompt from "@/components/InstallPrompt";
+import SWCleanup from "@/components/SWCleanup";
 
 export const metadata = {
   title: "Basecamp Viewer",
   description: "View and manage your Basecamp projects",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Basecamp Viewer",
-  },
 };
 
 export const viewport = {
@@ -24,8 +17,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="antialiased">
         {children}
-        <SWRegister />
-        <InstallPrompt />
+        <SWCleanup />
       </body>
     </html>
   );

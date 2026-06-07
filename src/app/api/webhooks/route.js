@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-logger";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getWebhookEvents } from "@/lib/db";
 
-export async function GET() {
+export const GET = withApiLogging("webhooks:GET", webhooksGet);
+async function webhooksGet() {
   const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {

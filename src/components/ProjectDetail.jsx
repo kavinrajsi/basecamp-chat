@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { format, isEqual, startOfDay, differenceInDays, addDays, subDays } from "date-fns";
-import { Users, ArrowLeft, MessageCircle, Send, FileText, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3, WifiOff } from "lucide-react";
+import { Users, ArrowLeft, MessageCircle, Send, FileText, ListTodo, CheckSquare, Square, ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import axios from "axios";
 import MentionDropdown from "./MentionDropdown";
 import MessageMenu from "./MessageMenu";
@@ -25,12 +26,11 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
   const [expandedLists, setExpandedLists] = useState({});
   const [mobileTab, setMobileTab] = useState("chat");
   const [todoView, setTodoView] = useState("list");
-  const [isOffline, setIsOffline] = useState(false);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const desktopInputRef = useRef(null);
 
-  const people = project.people || [];
+  const people = useMemo(() => project.people || [], [project.people]);
   const filteredPeople = people.filter((p) =>
     p.name?.toLowerCase().startsWith(mentionFilter.toLowerCase())
   );
@@ -38,21 +38,6 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [project.campfireLines]);
-
-  useEffect(() => {
-    function sync() {
-      setIsOffline(!navigator.onLine || localStorage.getItem("offlineMode") === "true");
-    }
-    sync();
-    window.addEventListener("online", sync);
-    window.addEventListener("offline", sync);
-    window.addEventListener("offlinemode", sync);
-    return () => {
-      window.removeEventListener("online", sync);
-      window.removeEventListener("offline", sync);
-      window.removeEventListener("offlinemode", sync);
-    };
-  }, []);
 
   const detectMention = useCallback((value, cursorPos) => {
     const before = value.slice(0, cursorPos);
@@ -183,12 +168,6 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
 
   const chatInput = project.chatId && (
     <div className="border-t border-gray-700 bg-gray-900 px-3 py-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:mt-4">
-      {isOffline && (
-        <div className="flex items-center gap-2 rounded-md bg-gray-700/60 px-3 py-2 mb-2 text-sm text-gray-300">
-          <WifiOff className="h-4 w-4 shrink-0 text-gray-400" />
-          You&apos;re offline — sending is disabled
-        </div>
-      )}
       {/* Mobile: simple input */}
       <form onSubmit={handleSend} className="flex items-center gap-2 sm:hidden">
         <div className="relative flex-1">
@@ -207,13 +186,13 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Send message"
-            disabled={sending || isOffline}
+            disabled={sending}
             className="w-full rounded-full border border-gray-600 bg-gray-800 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
           />
         </div>
         <button
           type="submit"
-          disabled={!message.trim() || sending || isOffline}
+          disabled={!message.trim() || sending}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send className="h-5 w-5" />
@@ -243,7 +222,7 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
               }
             }}
             placeholder="Write your message..."
-            disabled={sending || isOffline}
+            disabled={sending}
             rows={3}
             className="w-full resize-none rounded-lg bg-transparent px-4 py-3 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none disabled:opacity-50"
           />
@@ -251,7 +230,7 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
         <div className="mt-2">
           <button
             type="submit"
-            disabled={!message.trim() || sending || isOffline}
+            disabled={!message.trim() || sending}
             className="rounded-full bg-green-200 px-5 py-1.5 text-sm font-semibold text-green-900 hover:bg-green-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {sending ? "Posting..." : "Post"}
@@ -293,9 +272,11 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
               <div className={`group flex gap-3 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
                 {/* Avatar */}
                 {line.creator?.avatar_url ? (
-                  <img
+                  <Image
                     src={line.creator.avatar_url}
                     alt={line.creator.name}
+                    width={36}
+                    height={36}
                     className="h-9 w-9 shrink-0 rounded-full object-cover"
                   />
                 ) : (
@@ -438,11 +419,13 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
                           <div className="flex -space-x-1.5">
                             {todo.assignees.slice(0, 3).map((a) =>
                               a.avatar_url ? (
-                                <img
+                                <Image
                                   key={a.id}
                                   src={a.avatar_url}
                                   alt={a.name}
                                   title={a.name}
+                                  width={20}
+                                  height={20}
                                   className="h-5 w-5 rounded-full border border-gray-800 object-cover"
                                 />
                               ) : (
@@ -780,9 +763,11 @@ export default function ProjectDetail({ project, onMessageSent, currentUserId })
                     style={{ zIndex: people.length - idx }}
                   >
                     {person.avatar_url ? (
-                      <img
+                      <Image
                         src={person.avatar_url}
                         alt={person.name}
+                        width={44}
+                        height={44}
                         className="h-11 w-11 rounded-full border-2 border-gray-800 object-cover"
                       />
                     ) : (

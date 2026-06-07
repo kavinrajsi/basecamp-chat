@@ -1,32 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 export default function Header() {
-  const [user, setUser] = useState(null);
-  const [offlineMode, setOfflineMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("offlineMode") === "true";
-  });
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.identity) setUser(data.identity);
-      })
-      .catch(() => {});
-  }, []);
-
-  function toggleOffline() {
-    const next = !offlineMode;
-    setOfflineMode(next);
-    localStorage.setItem("offlineMode", String(next));
-    window.dispatchEvent(new Event("offlinemode"));
-  }
-
   return (
     <header className="border-b border-gray-700 bg-gray-900">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -38,33 +15,13 @@ export default function Header() {
         </Link>
 
         <div className="flex items-center gap-4">
-          <button
-            onClick={toggleOffline}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
-              offlineMode
-                ? "bg-yellow-900/50 text-yellow-400 hover:bg-yellow-900/70"
-                : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
-            }`}
+          <a
+            href="/api/auth/logout"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-100 transition-colors"
           >
-            {offlineMode ? (
-              <>
-                <WifiOff className="h-4 w-4" />
-                Offline
-              </>
-            ) : (
-              <Wifi className="h-4 w-4" />
-            )}
-          </button>
-          {user && (
-            <>
-              <a
-                href="/api/auth/logout"
-                className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-100 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-              </a>
-            </>
-          )}
+            <LogOut className="h-4 w-4" />
+            <span>Logout</span>
+          </a>
         </div>
       </div>
     </header>

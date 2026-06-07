@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-logger";
 import { getSession } from "@/lib/auth";
 import { getAllPeople } from "@/lib/basecamp";
 import { upsertPeople, getCachedPeople } from "@/lib/db";
@@ -20,7 +21,8 @@ async function withRetry(fn, retries = 3) {
   }
 }
 
-export async function GET(request) {
+export const GET = withApiLogging("people:GET", peopleGet);
+async function peopleGet(request) {
   const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {

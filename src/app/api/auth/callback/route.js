@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-logger";
 import { exchangeCodeForToken, getAuthorization } from "@/lib/basecamp";
 import { setSessionCookie } from "@/lib/auth";
 
@@ -6,7 +7,8 @@ function getOrigin() {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:80";
 }
 
-export async function GET(request) {
+export const GET = withApiLogging("auth/callback:GET", callbackGet);
+async function callbackGet(request) {
   const origin = getOrigin();
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");

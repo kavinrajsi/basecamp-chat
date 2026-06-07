@@ -208,23 +208,6 @@ export async function getCachedPeople(accountId) {
   return sql`SELECT * FROM people WHERE account_id = ${accountId} ORDER BY name ASC`;
 }
 
-export async function upsertTodoCache(accountId, data) {
-  await initDb();
-  await sql`
-    INSERT INTO todo_cache (account_id, data, synced_at)
-    VALUES (${accountId}, ${JSON.stringify(data)}, NOW())
-    ON CONFLICT (account_id) DO UPDATE SET
-      data      = EXCLUDED.data,
-      synced_at = NOW()
-  `;
-}
-
-export async function getCachedTodoData(accountId) {
-  await initDb();
-  const rows = await sql`SELECT data, synced_at FROM todo_cache WHERE account_id = ${accountId}`;
-  return rows[0] ?? null;
-}
-
 export async function getCachedProjects(accountId) {
   await initDb();
   return sql`SELECT * FROM projects WHERE account_id = ${accountId} ORDER BY updated_at DESC NULLS LAST`;
@@ -269,23 +252,6 @@ export async function invalidateProjectCache(accountId, projectId) {
   await sql`DELETE FROM project_cache WHERE account_id = ${accountId} AND project_id = ${projectId}`;
 }
 
-export async function upsertFilesCache(accountId, data) {
-  await initDb();
-  await sql`
-    INSERT INTO files_cache (account_id, data, synced_at)
-    VALUES (${accountId}, ${JSON.stringify(data)}, NOW())
-    ON CONFLICT (account_id) DO UPDATE SET
-      data      = EXCLUDED.data,
-      synced_at = NOW()
-  `;
-}
-
-export async function getCachedFilesData(accountId) {
-  await initDb();
-  const rows = await sql`SELECT data, synced_at FROM files_cache WHERE account_id = ${accountId}`;
-  return rows[0] ?? null;
-}
-
 export async function insertWebhookEvent(kind, recording, creator, payload) {
   await initDb();
   await sql`
@@ -297,45 +263,5 @@ export async function insertWebhookEvent(kind, recording, creator, payload) {
 export async function getWebhookEvents(limit = 200) {
   await initDb();
   return sql`SELECT * FROM webhook_events ORDER BY received_at DESC LIMIT ${limit}`;
-}
-
-export async function upsertLeave(recordingId, creatorName, creatorAvatar, creatorEmail, aiResponse, rawContent) {
-  await initDb();
-  await sql`
-    INSERT INTO leave (recording_id, creator_name, creator_avatar, creator_email, ai_response, raw_content)
-    VALUES (${recordingId}, ${creatorName}, ${creatorAvatar}, ${creatorEmail}, ${aiResponse}, ${rawContent})
-    ON CONFLICT (recording_id) DO UPDATE SET
-      creator_name   = EXCLUDED.creator_name,
-      creator_avatar = EXCLUDED.creator_avatar,
-      creator_email  = EXCLUDED.creator_email,
-      ai_response    = EXCLUDED.ai_response,
-      raw_content    = EXCLUDED.raw_content,
-      updated_at     = NOW()
-  `;
-}
-
-export async function deleteLeaveByRecordingId(recordingId) {
-  await initDb();
-  await sql`DELETE FROM leave WHERE recording_id = ${recordingId}`;
-}
-
-export async function updateLeaveContent(recordingId, rawContent) {
-  await initDb();
-  await sql`
-    UPDATE leave
-    SET raw_content = ${rawContent}, ai_response = NULL, updated_at = NOW()
-    WHERE recording_id = ${recordingId}
-  `;
-}
-
-export async function getLeaveByRecordingId(recordingId) {
-  await initDb();
-  const rows = await sql`SELECT * FROM leave WHERE recording_id = ${recordingId}`;
-  return rows[0] ?? null;
-}
-
-export async function getLeaveEntries(limit = 200) {
-  await initDb();
-  return sql`SELECT * FROM leave ORDER BY created_at DESC LIMIT ${limit}`;
 }
 

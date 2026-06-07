@@ -1,28 +1,13 @@
-import { insertWebhookEvent, deleteLeaveByRecordingId } from "@/lib/db";
-import { extractAndStoreLeave } from "@/lib/leave-ai";
+import { insertWebhookEvent } from "@/lib/db";
+import { withApiLogging } from "@/lib/api-logger";
 
-export async function POST(request) {
+export const POST = withApiLogging("webhooks/receive:POST", webhookReceivePost);
+async function webhookReceivePost(request) {
   try {
     const payload = await request.json();
     const { kind, recording, creator } = payload;
 
     await insertWebhookEvent(kind || "unknown", recording ?? null, creator ?? null, payload);
-
-    // Handle leave table based on recording status
-    if (recording?.id) {
-      const status = recording.status;
-
-      if (status === "trashed") {
-        await deleteLeaveByRecordingId(recording.id).catch((err) =>
-          console.error("Failed to delete leave:", err.message)
-        );
-      } else if (status === "active") {
-        // Extract leave/WFH dates via AI and store automatically
-        await extractAndStoreLeave(recording, creator).catch((err) =>
-          console.error("Failed to extract/store leave:", err.message)
-        );
-      }
-    }
 
     return new Response(null, { status: 204 });
   } catch (error) {

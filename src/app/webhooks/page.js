@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Webhook, Search, Copy, Check, ExternalLink, ChevronDown, ChevronRight, User, Sparkles, Loader2, ClipboardCopy } from "lucide-react";
+import Image from "next/image";
+import { Webhook, Search, Copy, Check, ExternalLink, ChevronDown, ChevronRight, User } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -43,10 +44,6 @@ function DetailField({ label, value, href }) {
 }
 
 function EventRow({ event, expanded, onToggle }) {
-  const [leaveDate, setLeaveDate] = useState(null);
-  const [leaveLoading, setLeaveLoading] = useState(false);
-  const [leaveCopied, setLeaveCopied] = useState(false);
-
   const kindColor = KIND_COLORS[event.kind] || DEFAULT_KIND_COLOR;
   const recording = event.recording;
   const creator = event.creator;
@@ -54,35 +51,6 @@ function EventRow({ event, expanded, onToggle }) {
   const recordingTitle = recording?.title || recording?.subject || null;
   const creatorName = creator?.name || null;
   const appUrl = recording?.app_url || null;
-
-  const handleFetchLeaveDate = async () => {
-    if (leaveLoading) return;
-    setLeaveLoading(true);
-    setLeaveDate(null);
-    try {
-      const res = await fetch("/api/webhooks/ai-reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recording, creator }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      const text = await res.text();
-      setLeaveDate(text);
-    } catch {
-      setLeaveDate("Failed to fetch leave date.");
-    } finally {
-      setLeaveLoading(false);
-    }
-  };
-
-  const handleCopyDate = async () => {
-    if (!leaveDate) return;
-    try {
-      await navigator.clipboard.writeText(leaveDate);
-      setLeaveCopied(true);
-      setTimeout(() => setLeaveCopied(false), 2000);
-    } catch {}
-  };
 
   return (
     <div>
@@ -150,7 +118,7 @@ function EventRow({ event, expanded, onToggle }) {
               <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Creator</h4>
               <div className="flex items-center gap-3">
                 {creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt="" className="h-8 w-8 rounded-full shrink-0" />
+                  <Image src={creator.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full shrink-0" />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
                     <User className="h-4 w-4 text-gray-500" />
@@ -164,57 +132,6 @@ function EventRow({ event, expanded, onToggle }) {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Leave Date */}
-          {recording && (
-            <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Leave Date
-                </h4>
-                <button
-                  onClick={handleFetchLeaveDate}
-                  disabled={leaveLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-                >
-                  {leaveLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    leaveDate ? "Refresh" : "Get Leave Date"
-                  )}
-                </button>
-              </div>
-              {creator && (
-                <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-400">
-                  <span className="text-gray-500">From:</span>
-                  <span className="text-gray-300">{creator.name || "Unknown"}</span>
-                  {creator.id && <span className="text-gray-500">ID: {creator.id}</span>}
-                  {creator.email_address && <span className="text-gray-500">{creator.email_address}</span>}
-                </div>
-              )}
-              {leaveDate && (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <pre className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-mono font-semibold text-gray-100 whitespace-pre-wrap">
-                      {leaveDate}
-                    </pre>
-                    <button
-                      onClick={handleCopyDate}
-                      className="mt-1.5 shrink-0 rounded-md p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
-                      title="Copy"
-                    >
-                      {leaveCopied ? (
-                        <Check className="h-4 w-4 text-green-400" />
-                      ) : (
-                        <ClipboardCopy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

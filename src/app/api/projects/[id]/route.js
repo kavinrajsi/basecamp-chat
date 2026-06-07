@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-logger";
 import { getSession } from "@/lib/auth";
 import {
   getProject,
@@ -31,7 +32,8 @@ async function withRetry(fn, retries = 3) {
   }
 }
 
-export async function GET(request, props) {
+export const GET = withApiLogging("projects/[id]:GET", projectGet);
+async function projectGet(request, props) {
   const { id: projectId } = await props.params;
   const session = await getSession();
 
@@ -126,7 +128,8 @@ export async function GET(request, props) {
   }
 }
 
-export async function POST(request, props) {
+export const POST = withApiLogging("projects/[id]:POST", projectPost);
+async function projectPost(request, props) {
   const { id: projectId } = await props.params;
   const session = await getSession();
 
@@ -165,7 +168,8 @@ export async function POST(request, props) {
   }
 }
 
-export async function DELETE(request, props) {
+export const DELETE = withApiLogging("projects/[id]:DELETE", projectDelete);
+async function projectDelete(request, props) {
   const { id: projectId } = await props.params;
   const session = await getSession();
 

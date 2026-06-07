@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-logger";
 import { getSession } from "@/lib/auth";
 import {
   getProjects,
@@ -41,7 +42,8 @@ async function runWithConcurrency(tasks, limit) {
   return results;
 }
 
-export async function GET() {
+export const GET = withApiLogging("users:GET", usersGet);
+async function usersGet() {
   const session = await getSession();
 
   if (!session?.accessToken || !session?.accountId) {
