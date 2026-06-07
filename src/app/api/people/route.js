@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiLogging } from "@/lib/api-logger";
+import { isOrgPerson } from "@/lib/org-filter";
 import { getSession } from "@/lib/auth";
 import { getAllPeople } from "@/lib/basecamp";
 import { upsertPeople, getCachedPeople } from "@/lib/db";
@@ -49,6 +50,7 @@ async function peopleGet(request) {
     const raw = await withRetry(() => getAllPeople(accessToken, accountId));
 
     const people = raw
+      .filter(isOrgPerson)
       .map((p) => ({
         id: p.id,
         name: p.name,

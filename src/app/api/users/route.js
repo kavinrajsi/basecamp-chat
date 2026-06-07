@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiLogging } from "@/lib/api-logger";
+import { isOrgPerson } from "@/lib/org-filter";
 import { getSession } from "@/lib/auth";
 import {
   getProjects,
@@ -104,6 +105,7 @@ async function usersGet() {
 
     for (const { project, people, todos } of projectData) {
       for (const person of people) {
+        if (!isOrgPerson(person)) continue;
         if (!userMap.has(person.id)) {
           userMap.set(person.id, {
             id: person.id,
