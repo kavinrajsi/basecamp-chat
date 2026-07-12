@@ -1,31 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Users, Webhook } from "lucide-react";
+import { FolderOpen, Users } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Projects", icon: FolderOpen },
   { href: "/users", label: "Users", icon: Users },
-  { href: "/webhooks", label: "Hooks", icon: Webhook, adminOnly: true },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const [admin, setAdmin] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (data?.isAdmin) setAdmin(true); })
-      .catch(() => {});
-  }, []);
 
   // Hide on project detail pages (mobile has its own layout)
   if (pathname.startsWith("/projects/")) return null;
 
-  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || admin);
+  const visibleItems = NAV_ITEMS;
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-gray-700/80 bg-gray-900/95 backdrop-blur-md">

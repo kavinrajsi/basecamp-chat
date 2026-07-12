@@ -92,17 +92,6 @@ export async function initDb() {
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS webhook_events (
-      id          SERIAL PRIMARY KEY,
-      kind        TEXT NOT NULL,
-      recording   JSONB,
-      creator     JSONB,
-      payload     JSONB NOT NULL,
-      received_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-
-  await sql`
     CREATE TABLE IF NOT EXISTS leave (
       id              SERIAL PRIMARY KEY,
       recording_id    BIGINT UNIQUE,
@@ -252,16 +241,4 @@ export async function invalidateProjectCache(accountId, projectId) {
   await sql`DELETE FROM project_cache WHERE account_id = ${accountId} AND project_id = ${projectId}`;
 }
 
-export async function insertWebhookEvent(kind, recording, creator, payload) {
-  await initDb();
-  await sql`
-    INSERT INTO webhook_events (kind, recording, creator, payload)
-    VALUES (${kind}, ${JSON.stringify(recording)}, ${JSON.stringify(creator)}, ${JSON.stringify(payload)})
-  `;
-}
-
-export async function getWebhookEvents(limit = 200) {
-  await initDb();
-  return sql`SELECT * FROM webhook_events ORDER BY received_at DESC LIMIT ${limit}`;
-}
 
